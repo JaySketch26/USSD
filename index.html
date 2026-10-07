@@ -1,0 +1,926 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GCB *422# USSD Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: phone on the left (sticky), reviewer controls + live session transcript on the right */
+:root{
+  --bg:#F2F3F4; --surface:#FFFFFF; --ink:#1E252C; --muted:#5D6873; --line:#DCE0E4;
+  --gold:#F5A623; --gold-strong:#D4880D; --gold-ink:#7A4E00; --navy:#2B333C; --chip:#EEF0F2;
+  --ok:#1F8A4C; --warn:#B4400E;
+  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --ios:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13171B; --surface:#1C2228; --ink:#E7EBEE; --muted:#98A4AF; --line:#2D353D;
+  --gold:#F9C632; --gold-strong:#F5A623; --gold-ink:#F9C632; --navy:#0D1114; --chip:#252C33;
+  --ok:#5BCB88; --warn:#FF9B6A; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#13171B; --surface:#1C2228; --ink:#E7EBEE; --muted:#98A4AF; --line:#2D353D;
+  --gold:#F9C632; --gold-strong:#F5A623; --gold-ink:#F9C632; --navy:#0D1114; --chip:#252C33;
+  --ok:#5BCB88; --warn:#FF9B6A; color-scheme:dark }
+
+html,body{height:auto;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5}
+*{box-sizing:border-box}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold-strong);outline-offset:2px}
+
+.wrap{max-width:1160px;margin:0 auto;padding-block:28px 48px;padding-inline:clamp(16px,3vw,32px);
+  display:grid;grid-template-columns:auto minmax(0,1fr);gap:clamp(24px,4vw,56px);align-items:start}
+@media (max-width:900px){.wrap{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- Phone ---------- */
+.stage-col{position:sticky;top:20px;display:flex;justify-content:center}
+@media (max-width:900px){.stage-col{position:static}}
+.stage{position:relative}
+.device{position:absolute;top:0;left:0;width:421px;height:880px;transform-origin:top left;
+  border-radius:68px;padding:14px;background:linear-gradient(145deg,#3a3d42,#17181b 40%,#2a2c30);
+  box-shadow:0 0 0 2px #0b0b0c inset,0 30px 60px -20px rgba(0,0,0,.45),0 12px 24px -12px rgba(0,0,0,.35)}
+.screen{position:relative;width:393px;height:852px;border-radius:55px;overflow:hidden;background:#fff;color:#000;font-family:var(--ios);
+  -webkit-font-smoothing:antialiased;user-select:none}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:124px;height:36px;border-radius:20px;background:#000;z-index:70}
+.statusbar{position:absolute;top:0;left:0;right:0;height:54px;display:flex;justify-content:space-between;align-items:center;
+  padding:6px 30px 0 52px;font-weight:600;font-size:16px;z-index:65;letter-spacing:-.2px}
+.sb-icons{display:flex;gap:6px;align-items:center}
+.homebar{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#000;z-index:80}
+
+/* Dialer */
+.dialer{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center}
+.dial-num{margin-top:118px;height:56px;width:100%;padding:0 30px;text-align:center;font-size:38px;font-weight:400;letter-spacing:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dial-add{height:22px;font-size:16px;color:#007AFF;visibility:hidden}
+.dial-add.show{visibility:visible}
+.keypad{margin-top:26px;display:grid;grid-template-columns:repeat(3,78px);gap:16px 26px}
+.key{width:78px;height:78px;border-radius:50%;border:0;background:#E5E5EA;color:#000;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;transition:background .12s}
+.key:active,.key.pressed{background:#B9B9BF}
+.key .d{font-size:34px;line-height:1;font-weight:400}
+.key .l{font-size:10px;font-weight:600;letter-spacing:2px;margin-top:2px;height:12px}
+.key.sym .d{font-size:38px}
+.dial-actions{margin-top:16px;display:grid;grid-template-columns:repeat(3,78px);gap:26px;align-items:center}
+.call{width:78px;height:78px;border-radius:50%;border:0;background:#34C759;display:flex;align-items:center;justify-content:center}
+.call:active{background:#2AA147}
+.del{border:0;background:none;height:78px;display:flex;align-items:center;justify-content:center;visibility:hidden}
+.del.show{visibility:visible}
+.tabbar{position:absolute;bottom:0;left:0;right:0;height:84px;border-top:.5px solid #d1d1d6;background:#F9F9F9;
+  display:grid;grid-template-columns:repeat(5,1fr);padding:7px 6px 0}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:#8E8E93;font-weight:500}
+.tab.on{color:#007AFF}
+
+/* USSD overlay — iOS full-screen USSD sheet */
+.ussd{position:absolute;inset:0;z-index:40;background:#6B6B6B;display:flex;flex-direction:column;animation:fadein .25s ease}
+@keyframes fadein{from{opacity:0}}
+.ussd[hidden]{display:none!important}
+.ussd-top{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:64px 28px 16px}
+.alert{width:100%;max-height:100%;display:flex;flex-direction:column}
+.msg{color:#fff;font-size:15px;font-weight:500;line-height:1.72;text-align:center;white-space:pre-wrap;overflow-y:auto;min-height:0;
+  overflow-wrap:anywhere;letter-spacing:-.1px;animation:fadein .2s ease}
+.msg .t{margin-bottom:4px}
+.msg .err{display:block;color:#FFD2CC;font-size:14px;margin-bottom:6px}
+.msg.loading{display:flex;flex-direction:column;align-items:center;gap:14px}
+.spin{flex:none;width:22px;height:22px;border-radius:50%;border:2.5px solid rgba(255,255,255,.25);border-top-color:#fff;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.ussd-bottom{flex:none;padding:0 16px 50px;display:flex;flex-direction:column;gap:12px}
+.ussd.replying .ussd-bottom{padding-bottom:12px}
+.field[hidden]{display:none!important}
+.field input{width:100%;height:50px;border:0;border-radius:12px;background:rgba(255,255,255,.16);color:#fff;padding:0 16px;
+  font:500 17px var(--ios);caret-color:#fff;text-align:center;letter-spacing:1px}
+.field input::placeholder{color:rgba(255,255,255,.55);letter-spacing:0}
+.field input:focus{outline:none;box-shadow:0 0 0 1.5px rgba(255,255,255,.6)}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.btns.one{grid-template-columns:1fr}
+.btns button{height:53px;border:0;border-radius:12px;font-size:17px;font-weight:500;font-family:var(--ios);letter-spacing:-.2px;
+  transition:transform .12s,filter .12s}
+.btns .w{background:#fff;color:#000}
+.btns .k{background:#1C1C1E;color:#fff}
+.btns button:active{transform:scale(.97);filter:brightness(.9)}
+.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.screen.ussd-on .statusbar{color:#fff}
+.screen.ussd-on .homebar{background:#fff}
+.statusbar svg{fill:currentColor}
+
+/* iOS 26 phone pad keyboard */
+.kb{flex:none;margin:0 6px 6px;border-radius:30px;padding:10px 8px 34px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;
+  background:rgba(222,224,230,.82);backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);
+  box-shadow:0 0 0 .5px rgba(255,255,255,.6) inset}
+.kb[hidden]{display:none!important}
+.kk{height:46px;border:0;border-radius:10px;background:#fff;color:#000;box-shadow:0 1px 0 rgba(0,0,0,.18);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;font-family:var(--ios)}
+.kk:active{background:#C9CBD1}
+.kk .d{font-size:25px;line-height:1}
+.kk .l{font-size:10px;font-weight:600;letter-spacing:2px;height:11px}
+.kk.flat{background:transparent;box-shadow:none}
+.kk.flat:active{background:rgba(255,255,255,.7)}
+
+/* SMS banner */
+.banner{position:absolute;top:56px;left:9px;right:9px;z-index:90;border-radius:22px;padding:12px 14px;display:flex;gap:10px;
+  background:rgba(246,246,248,.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  box-shadow:0 8px 30px rgba(0,0,0,.18);transform:translateY(calc(-100% - 90px));transition:transform .45s cubic-bezier(.2,.9,.3,1.1)}
+.banner.show{transform:translateY(0)}
+.banner .ic{flex:none;width:38px;height:38px;border-radius:9px;background:linear-gradient(#67E36F,#2DC23A);display:flex;align-items:center;justify-content:center}
+.banner .bt{display:flex;justify-content:space-between;font-size:15px;font-weight:600}
+.banner .bt span{font-weight:400;color:#8E8E93;font-size:13px}
+.banner .bb{font-size:14px;line-height:1.3;margin-top:1px}
+@media (prefers-reduced-motion:reduce){.alert,.shake{animation:none}.banner{transition:none}}
+
+
+/* ---------- Keypad (feature) phone ---------- */
+.fp{position:absolute;top:0;left:0;width:296px;height:700px;transform-origin:top left;border-radius:40px 40px 48px 48px;
+  background:linear-gradient(165deg,#41464e 0%,#24282e 45%,#1a1d22 100%);padding:0 20px;
+  box-shadow:0 0 0 1.5px #0b0c0e inset,0 2px 0 rgba(255,255,255,.12) inset,0 30px 60px -20px rgba(0,0,0,.5),0 12px 24px -12px rgba(0,0,0,.35);
+  font-family:Arial,"Helvetica Neue",Helvetica,sans-serif;user-select:none}
+.fp[hidden],.device[hidden]{display:none!important}
+.fp-speaker{height:46px;display:flex;align-items:center;justify-content:center}
+.fp-speaker i{width:56px;height:5px;border-radius:3px;background:#0c0e11;box-shadow:0 1px 0 rgba(255,255,255,.08)}
+.fp-bezel{background:#0a0b0d;border-radius:10px;padding:8px;box-shadow:0 1px 0 rgba(255,255,255,.08)}
+.fp-screen{position:relative;width:240px;height:320px;background:#fff;color:#000;overflow:hidden;display:flex;flex-direction:column}
+.fp-sb{flex:none;height:18px;display:flex;align-items:center;justify-content:space-between;padding:0 4px;background:#1f2329;color:#fff;font-size:11px;font-weight:700}
+.fp-sb .ic{display:flex;gap:4px;align-items:center}
+.fp-body{flex:1;min-height:0;position:relative;overflow:hidden}
+.fp-soft{flex:none;height:24px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 6px;font-size:13px;font-weight:700;
+  background:linear-gradient(#eef1f5,#cdd4dd);border-top:1px solid #aab3be;color:#111}
+.fp-soft span:last-child{text-align:right}
+.fp-soft span:nth-child(2){font-size:11px;color:#3a4a5e}
+/* screen states */
+.fp-idle{position:absolute;inset:0;background:linear-gradient(170deg,#123a5a 0%,#1d6a86 55%,#2b8a8a 100%);color:#fff;display:flex;flex-direction:column;align-items:center;padding-top:44px}
+.fp-idle .op{font-size:12px;font-weight:700;opacity:.9}
+.fp-idle .tm{font-size:46px;font-weight:300;letter-spacing:1px;margin-top:10px;line-height:1}
+.fp-idle .dt{font-size:13px;margin-top:6px;opacity:.9}
+.fp-dial{position:absolute;inset:0;background:#fff;display:flex;flex-direction:column;justify-content:flex-end;padding:8px 10px 10px;text-align:right}
+.fp-dial .num{font-size:30px;font-weight:700;letter-spacing:1px;overflow-wrap:anywhere;line-height:1.15}
+.fp-dial .hint{font-size:11px;color:#68727d;margin-bottom:6px;text-align:left}
+.fp-scroll{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;padding:6px 12px 8px 8px;font-size:14px;line-height:1.32;white-space:pre-wrap;overflow-wrap:anywhere}
+.fp-scroll::-webkit-scrollbar{display:none}
+.fp-scroll .err{display:block;color:#C4140A;font-weight:700;margin-bottom:3px}
+.fp-bar{position:absolute;top:4px;bottom:4px;right:2px;width:4px;border-radius:2px;background:#e1e5ea}
+.fp-bar i{position:absolute;left:0;right:0;border-radius:2px;background:#5b6b80}
+.fp-load{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-size:14px;font-weight:700}
+.fp-load .pb{width:150px;height:8px;border:1px solid #6d7a8a;padding:1px}
+.fp-load .pb i{display:block;height:100%;width:30%;background:#2b5d9b;animation:pb 1s linear infinite}
+@keyframes pb{from{margin-left:0}to{margin-left:70%}}
+.fp-reply{position:absolute;inset:0;display:flex;flex-direction:column}
+.fp-reply .hd{flex:none;height:22px;background:#2b5d9b;color:#fff;font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:center;padding:0 6px}
+.fp-reply .hd span{font-size:10px;border:1px solid rgba(255,255,255,.7);padding:0 3px;border-radius:2px}
+.fp-reply .box{margin:8px;border:1px solid #7a8796;min-height:60px;padding:5px 6px;font-size:18px;font-weight:700;letter-spacing:1px;overflow-wrap:anywhere}
+.fp-reply .cur{display:inline-block;width:2px;height:19px;background:#000;vertical-align:-3px;margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.fp-reply .hint{margin:0 8px;font-size:11px;color:#68727d}
+.fp-msg{position:absolute;left:10px;right:10px;top:40px;background:#fff;border:2px solid #2b5d9b;box-shadow:0 4px 12px rgba(0,0,0,.35);font-size:12px;line-height:1.3;z-index:5}
+.fp-msg b{display:block;background:#2b5d9b;color:#fff;padding:2px 5px;font-size:12px}
+.fp-msg div{padding:5px 6px;max-height:150px;overflow:hidden}
+/* keys */
+.fp-keys{padding:18px 4px 0}
+.fp-nav{display:grid;grid-template-columns:58px 1fr 58px;align-items:center;gap:6px}
+.fp-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.fp-col .fk{width:100%;padding:0}
+.fk{border:0;color:#e9edf1;background:linear-gradient(#4a5058,#2c3036);box-shadow:0 1px 0 rgba(255,255,255,.18) inset,0 2px 3px rgba(0,0,0,.5);
+  font-family:inherit;display:flex;align-items:center;justify-content:center}
+.fk:active,.fk.pressed{background:linear-gradient(#2c3036,#3b4047);transform:translateY(1px)}
+.fk.soft{height:26px;border-radius:13px}
+.fk.soft i{width:22px;height:3px;border-radius:2px;background:#cfd5dc}
+.fk.call{height:30px;border-radius:15px}
+.dpad{position:relative;width:104px;height:104px;margin:0 auto;border-radius:50%;background:linear-gradient(#4a5058,#2a2e34);
+  box-shadow:0 1px 0 rgba(255,255,255,.18) inset,0 3px 5px rgba(0,0,0,.55)}
+.dpad button{position:absolute;border:0;background:none;color:#cfd5dc;font-size:10px;width:34px;height:30px}
+.dpad .u{top:2px;left:35px}.dpad .d{bottom:2px;left:35px}.dpad .l{left:2px;top:37px;width:30px}.dpad .r{right:2px;top:37px;width:30px}
+.dpad .ok{top:30px;left:30px;width:44px;height:44px;border-radius:50%;background:linear-gradient(#5a616a,#363b42);
+  box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 1px 3px rgba(0,0,0,.6);color:#fff;font-weight:700;font-size:11px}
+.dpad button:active{color:#fff}
+.dpad .ok:active{background:linear-gradient(#363b42,#4a5058)}
+.fp-num{display:grid;grid-template-columns:repeat(3,1fr);gap:9px 10px;margin-top:16px}
+.fk.n{height:36px;border-radius:18px;flex-direction:row;gap:5px}
+.fk.n .dg{font-size:19px;font-weight:700}
+.fk.n .lt{font-size:9px;letter-spacing:.5px;color:#aab3bd;font-weight:700}
+
+/* ---------- Panel ---------- */
+.panel{display:flex;flex-direction:column;gap:20px;min-width:0;max-width:520px;align-self:center}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-ink)}
+h1{font-size:clamp(26px,3vw,34px);line-height:1.15;margin:4px 0 8px;letter-spacing:-.02em;text-wrap:balance}
+h1 code{font-family:var(--mono);font-weight:500;background:var(--navy);color:#F9C632;padding:0 .3em;border-radius:6px}
+.lead{color:var(--muted);max-width:60ch;margin:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.card h2{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.seg{display:inline-flex;background:var(--chip);border-radius:9px;padding:3px;gap:2px}
+.seg button{border:0;background:none;color:var(--muted);padding:7px 14px;border-radius:7px;font-weight:500;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:7px 13px;border-radius:8px;font-weight:500;font-size:13px}
+.btn:hover{border-color:var(--gold-strong)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#1E252C}
+.jumps{display:flex;flex-wrap:wrap;gap:8px}
+.jumps .btn{font-size:12.5px;padding:6px 11px}
+.meta{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;font-size:13px}
+.meta dt{color:var(--muted)}
+.meta dd{margin:0;font-family:var(--mono);font-size:12.5px;overflow-wrap:anywhere}
+.meter{height:6px;border-radius:3px;background:var(--chip);overflow:hidden;margin-top:6px}
+.meter i{display:block;height:100%;background:var(--ok);width:0;transition:width .25s}
+.meter.over i{background:var(--warn)}
+.chars{font-variant-numeric:tabular-nums}
+.chars.over{color:var(--warn)}
+.log{max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;font-size:12.5px}
+.log .n{font-family:var(--mono);white-space:pre-wrap;background:var(--chip);border-radius:8px;padding:8px 10px;color:var(--ink);overflow-wrap:anywhere}
+.log .n b{font-family:var(--sans);font-weight:600}
+.log .u{align-self:flex-end;background:var(--navy);color:#F9C632;font-family:var(--mono);border-radius:8px;padding:4px 10px}
+.log .s{align-self:center;color:var(--muted);font-size:12px}
+.empty{color:var(--muted);font-size:13px}
+.tests{margin:0;padding-left:18px;color:var(--muted);font-size:13px;display:grid;gap:4px}
+.tests b{color:var(--ink);font-weight:600;font-family:var(--mono);font-size:12.5px}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="stage-col">
+    <div class="stage" id="stage">
+      <div class="fp" id="fp" hidden aria-label="Keypad phone">
+        <div class="fp-speaker"><i></i></div>
+        <div class="fp-bezel">
+          <div class="fp-screen">
+            <div class="fp-sb"><span class="ic"><svg width="14" height="10" viewBox="0 0 14 10" fill="#fff"><rect x="0" y="7" width="2" height="3"/><rect x="4" y="5" width="2" height="5"/><rect x="8" y="2.5" width="2" height="7.5"/><rect x="12" y="0" width="2" height="10"/></svg>MTN GH</span><span>09:41</span><span class="ic"><svg width="20" height="10" viewBox="0 0 20 10"><rect x=".5" y=".5" width="17" height="9" fill="none" stroke="#fff"/><rect x="2" y="2" width="13" height="6" fill="#fff"/><rect x="18" y="3" width="2" height="4" fill="#fff"/></svg></span></div>
+            <div class="fp-body" id="fpBody"></div>
+            <div class="fp-soft"><span id="fpL"></span><span id="fpC"></span><span id="fpR"></span></div>
+          </div>
+        </div>
+        <div class="fp-keys">
+          <div class="fp-nav">
+            <div class="fp-col">
+              <button class="fk soft" data-fk="sl" aria-label="Left soft key"><i></i></button>
+              <button class="fk call" data-fk="call" aria-label="Call"><svg width="20" height="20" viewBox="0 0 24 24" fill="#3BD16F"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8Z"/></svg></button>
+            </div>
+            <div class="dpad">
+              <button class="u" data-fk="up" aria-label="Up">▲</button>
+              <button class="l" data-fk="left" aria-label="Left">◀</button>
+              <button class="ok" data-fk="ok" aria-label="OK">OK</button>
+              <button class="r" data-fk="right" aria-label="Right">▶</button>
+              <button class="d" data-fk="down" aria-label="Down">▼</button>
+            </div>
+            <div class="fp-col">
+              <button class="fk soft" data-fk="sr" aria-label="Right soft key"><i></i></button>
+              <button class="fk call" data-fk="end" aria-label="End"><svg width="20" height="20" viewBox="0 0 24 24" fill="#FF4D4D"><path transform="rotate(135 12 12)" d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8Z"/></svg></button>
+            </div>
+          </div>
+          <div class="fp-num" id="fpNum"></div>
+        </div>
+      </div>
+      <div class="device" id="device">
+        <div class="screen" id="screen">
+          <div class="island"></div>
+          <div class="statusbar">
+            <span>9:41</span>
+            <span class="sb-icons">
+              <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+              <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2.6c2.2 0 4.2.9 5.7 2.3l1.1-1.1A9.6 9.6 0 0 0 8 1 9.6 9.6 0 0 0 1.2 3.8l1.1 1.1A8.1 8.1 0 0 1 8 2.6Zm0 3.2c1.3 0 2.5.5 3.4 1.4l1.1-1.1A6.4 6.4 0 0 0 8 4.2c-1.7 0-3.3.7-4.5 1.9l1.1 1.1c.9-.9 2.1-1.4 3.4-1.4Zm0 3.1c.5 0 .9.2 1.2.5L8 10.6 6.8 9.4c.3-.3.7-.5 1.2-.5Z"/></svg>
+              <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="20" height="9" rx="2"/><path d="M25 4.5v4c.8-.3 1.3-1.1 1.3-2s-.5-1.7-1.3-2Z" opacity=".4"/></svg>
+            </span>
+          </div>
+
+          <div class="dialer">
+            <div class="dial-num" id="dialNum"></div>
+            <div class="dial-add" id="dialAdd">Add Number</div>
+            <div class="keypad" id="keypad"></div>
+            <div class="dial-actions">
+              <span></span>
+              <button class="call" id="callBtn" aria-label="Call">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="#fff"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8Z"/></svg>
+              </button>
+              <button class="del" id="dialDel" aria-label="Delete">
+                <svg width="30" height="22" viewBox="0 0 24 18" fill="#C7C7CC"><path d="M22 0H7c-.7 0-1.2.4-1.6.9L0 9l5.4 8.1c.4.5.9.9 1.6.9h15c1.1 0 2-.9 2-2V2c0-1.1-.9-2-2-2Zm-3 12.6L17.6 14 14 10.4 10.4 14 9 12.6 12.6 9 9 5.4 10.4 4 14 7.6 17.6 4 19 5.4 15.4 9l3.6 3.6Z"/></svg>
+              </button>
+            </div>
+            <nav class="tabbar" aria-hidden="true">
+              <div class="tab"><svg width="26" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7L12 2Z"/></svg>Favourites</div>
+              <div class="tab"><svg width="26" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Recents</div>
+              <div class="tab"><svg width="26" height="24" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7H4Z"/></svg>Contacts</div>
+              <div class="tab on"><svg width="26" height="24" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="6" cy="11" r="2"/><circle cx="12" cy="11" r="2"/><circle cx="18" cy="11" r="2"/><circle cx="6" cy="17" r="2"/><circle cx="12" cy="17" r="2"/><circle cx="18" cy="17" r="2"/><circle cx="12" cy="22" r="1.6"/></svg>Keypad</div>
+              <div class="tab"><svg width="26" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="12" r="4"/><circle cx="18" cy="12" r="4"/><path d="M6 16h12"/></svg>Voicemail</div>
+            </nav>
+          </div>
+
+          <div class="ussd" id="ussd" hidden>
+            <div class="ussd-top">
+              <div class="alert" id="alert" role="dialog" aria-live="polite"><div class="msg" id="msg"></div></div>
+            </div>
+            <div class="ussd-bottom">
+              <div class="field" id="field" hidden><input id="inp" autocomplete="off" inputmode="none" aria-label="Reply" placeholder="Enter reply"></div>
+              <div class="btns" id="btns"></div>
+            </div>
+            <div class="kb" id="kb"></div>
+          </div>
+
+          <div class="banner" id="banner" aria-live="polite">
+            <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.4 1.3 4.6 3.4 6.1-.2 1.4-.9 2.7-1.9 3.6 2 0 3.9-.7 5.3-1.8 1 .3 2.1.4 3.2.4 5.5 0 10-3.6 10-8.1S17.5 3 12 3Z"/></svg></div>
+            <div style="min-width:0;flex:1">
+              <div class="bt">GCB Bank <span>now</span></div>
+              <div class="bb" id="bannerText"></div>
+            </div>
+          </div>
+          <div class="homebar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="panel">
+    <div>
+      <div class="eyebrow">GCB Mobile Banking · USSD</div>
+      <h1>Dial <code>*422#</code></h1>
+    </div>
+
+    <div class="card">
+      <h2>Device</h2>
+      <div class="seg" role="group" aria-label="Device" style="margin-bottom:22px">
+        <button id="devIos" aria-pressed="true">iPhone</button>
+        <button id="devFp" aria-pressed="false">Keypad phone</button>
+      </div>
+      <h2>Customer</h2>
+      <div class="row">
+        <div class="seg" role="group" aria-label="Customer state">
+          <button id="segNew" aria-pressed="true">New customer</button>
+          <button id="segReg" aria-pressed="false">Registered</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn primary" id="autoDial">Dial *422#</button>
+          <button class="btn" id="restart">Reset</button>
+        </div>
+      </div>
+      <h2 style="margin-top:22px">Jump to screen</h2>
+      <div class="jumps" id="jumps"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* ---------- Data ---------- */
+const ACCTS = ['117XXXXXX0159','117XXXXXX0116'];
+const CARD = '4071XXXXX5518';
+const MSISDN = '0593873778';
+const NAME = 'Justice Oduro';
+const NETS = ['MTN','Telecel','AT'];
+const WALLETS = ['MTN MoMo','Telecel Cash','AT Money'];
+const BUNDLES = {
+  'Flexi':[['17.79MB',0.5],['35.57MB',1],['349.24MB',3],['357.78MB',4],['447.23MB',5]],
+  'FlexiMore':[['1.10GB',10],['2.27GB',20],['5.03GB',40]],
+  'SMS':[['50 SMS',0.5],['120 SMS',1],['300 SMS',2]],
+  'Social Media':[['100MB Social',1],['250MB Social',2],['600MB Social',5]],
+  'Talk Time':[['20 mins',1],['45 mins',2],['120 mins',5]],
+  'Video':[['200MB Video',2],['500MB Video',4],['1.2GB Video',8]]
+};
+const CATS = ['Flexi','SMS','Social Media','Talk Time','Video'];
+const BILLERS = [
+  {n:'ECG Prepaid',ref:'Meter Number',short:'Meter',name:'Kwame Asante',extra:'Arrears: GHC0.00'},
+  {n:'Ghana Water',ref:'Account Number',short:'Acct',name:'Abena Kyei',extra:'Amount Due: GHC86.40'},
+  {n:'DStv',ref:'Smartcard Number',short:'Card',name:'Yaw Darko',extra:'Package: Compact'},
+  {n:'GOtv',ref:'IUC Number',short:'IUC',name:'Efua Mensah',extra:'Package: GOtv Max'},
+  {n:'StarTimes',ref:'Smartcard Number',short:'Card',name:'Kojo Antwi',extra:'Package: Classic'}
+];
+const BANKS1 = ['Absa Bank','CalBank','Ecobank','Fidelity Bank','Stanbic Bank'];
+const BANKS2 = ['Access Bank','Republic Bank','Societe Generale','Zenith Bank'];
+const MERCHANTS = [['Melcom - Accra Mall','104882'],['Shoprite - Junction Mall','220931'],['Papaye - Osu','318774']];
+
+let registered = false, pin = null, pinTries = 0;
+let D = {}, stack = [], cur = null, curScreen = null, busy = false, active = false;
+
+/* ---------- Helpers ---------- */
+const money = n => 'GHC' + Number(n).toFixed(2);
+const mask = a => a.length > 7 ? a.slice(0,3) + 'X'.repeat(a.length-7) + a.slice(-4) : a;
+const isAmt = v => /^\d+(\.\d{1,2})?$/.test(v) && +v > 0;
+const isPhone = v => /^0\d{9}$/.test(v);
+const weak = v => /^(\d)\1{3}$/.test(v) || '0123456789'.includes(v) || '9876543210'.includes(v);
+const ref = () => 'GCB' + Math.floor(1e9 + Math.random()*9e9);
+const list = (arr, f = x => x) => arr.map((x,i) => `${i+1}. ${f(x)}`).join('\n');
+const pick = (arr, set, next) => Object.fromEntries(arr.map((x,i) => [String(i+1), () => { set(x,i); return next; }]));
+const toSrc = (title, next) => { D.srcTitle = title; D.srcNext = next; return 'src'; };
+const ANOTHER = '\nDo you want to perform another transaction?\n1. Yes\n2. No';
+const END_THANKS = 'END:Thank you for banking with GCB.';
+
+function confirmScr(title, lines, onOk, next = 'done'){
+  return { text: `${title}\n${lines.join('\n')}\n\n1. Confirm\n2. Cancel`,
+    choices: { '1': () => { if (onOk) setTimeout(() => sms(onOk()), 2600); return next; }, '2': 'cancelled' } };
+}
+function pinInput(label, onOk){
+  return v => {
+    if (!/^\d{4}$/.test(v)) return { err: 'PIN must be 4 digits.' };
+    if (pin && v !== pin){
+      pinTries++;
+      if (pinTries >= 3) return 'END:Your PIN has been blocked after 3 wrong attempts. Dial *422# and select Help > Reset PIN.';
+      return { err: `Incorrect PIN. ${3-pinTries} attempt${3-pinTries>1?'s':''} left.` };
+    }
+    pinTries = 0; return onOk(v);
+  };
+}
+function newPin(next){
+  return v => {
+    if (!/^\d{4}$/.test(v)) return { err: 'PIN must be 4 digits.' };
+    if (weak(v)) return { err: 'PIN is too easy to guess. Avoid repeated or sequential digits.' };
+    D.newPin = v; return next;
+  };
+}
+function confirmPin(back, done){
+  return v => v === D.newPin ? done() : { err: 'PINs do not match. Try again.', to: back };
+}
+
+/* ---------- Screens ---------- */
+const SC = {
+  landing: () => ({ text: 'Welcome to GCB\n1. GCB Mobile Banking\n2. OTP Retrieval\n3. Help\n\n0. Exit',
+    choices: { '1': () => registered ? 'login' : 'reg_intro', '2': () => registered ? 'otp_pin' : 'otp_unreg', '3': 'help', '0': 'END:Thank you for choosing GCB.' } }),
+
+  /* Registration */
+  reg_intro: () => ({ text: "Register\nGet started with GCB Mobile Banking.\nYou'll need your Ghana Card and GCB account number.\n\n1. Continue\n\n0. Cancel",
+    choices: { '1': 'reg_acct', '0': 'BACK' } }),
+  reg_acct: () => ({ text: 'Register\nEnter your GCB Account Number:',
+    input: v => /^\d{13}$/.test(v) ? (D.acct = v, 'reg_card') : { err: 'Account number must be 13 digits.' } }),
+  reg_card: () => ({ text: 'Register\nEnter Ghana Card Number:',
+    input: v => /^(GHA-?)?\d{9}-?\d$/i.test(v) ? (D.gcard = v, 'reg_confirm') : { err: 'Enter the 10 digits on your Ghana Card, e.g. 7234567891.' } }),
+  reg_confirm: () => ({ text: `Confirm Your Details\nName: ${NAME}\nAcct: ${mask(D.acct||'')}\n\n1. Continue\n\n0. Cancel`,
+    choices: { '1': 'reg_pin', '0': 'END:Registration cancelled.' } }),
+  reg_pin: () => ({ text: 'Create Your 4-digit PIN:', secret: true, input: newPin('reg_pin2') }),
+  reg_pin2: () => ({ text: 'Confirm PIN:', secret: true, input: confirmPin('reg_pin', () => 'reg_terms') }),
+  reg_terms: () => ({ text: 'Almost Done\nI agree to the Terms and Conditions at https://www.gcbbank.com.gh/electronic-terms.\n\n1. Yes\n2. No',
+    choices: { '1': () => { registered = true; pin = D.newPin; syncSeg(); setTimeout(() => sms(`Welcome to GCB Mobile Banking, Justice. Dial *422# anytime to bank on the go. Never share your PIN.`), 2600); return 'reg_done'; },
+      '2': 'END:Registration not completed. You need to accept the Terms and Conditions to use GCB Mobile Banking.' } }),
+  reg_done: () => ({ text: 'Registration Completed\n\n1. Start Banking\n2. Exit', choices: { '1': 'menu', '2': END_THANKS } }),
+
+  /* Sign-in + main menu */
+  login: () => ({ text: 'GCB Mobile Banking\nEnter your 4-digit PIN:', secret: true, input: pinInput('login', () => 'menu') }),
+  menu: () => ({ text: 'GCB Mobile Banking\n1. Airtime & Bundles\n2. Funds Transfer\n3. Pay Bills\n4. Mobile Money\n5. GHQR Merchant Pay\n6. Card Top Up\n0. Exit',
+    choices: { '1':'ab','2':'ft','3':'pb','4':'mm','5':'qr','6':'ct','0':END_THANKS } }),
+
+  /* Airtime & Bundles */
+  ab: () => ({ text: 'Airtime & Bundles\n1. Airtime\n2. Internet Bundle\n0. Back', choices: { '1':'air','2':'bun','0':'BACK' } }),
+  air: () => ({ text: 'Airtime\n1. Self\n2. Others\n0. Back',
+    choices: { '1': () => { D.mode='Self'; D.to='233'+MSISDN.slice(1); D.net='MTN'; return 'air_amt'; },
+               '2': () => { D.mode='Others'; return 'air_net'; }, '0':'BACK' } }),
+  air_net: () => ({ text: `Airtime (Others)\nSelect Beneficiary Network\n${list(NETS)}\n0. Back`,
+    choices: { ...pick(NETS, x => D.net = x, 'air_num'), '0':'BACK' } }),
+  air_num: () => ({ text: 'Airtime (Others)\nEnter Beneficiary Mobile Number:',
+    input: v => isPhone(v) ? (D.to = '233'+v.slice(1), 'air_amt') : { err: 'Enter a 10-digit number starting with 0.' } }),
+  air_amt: () => ({ text: `Airtime (${D.mode})\nEnter Amount:`,
+    input: v => isAmt(v) ? (D.amt = +v, 'air_sum') : { err: 'Enter a valid amount, e.g. 5.' } }),
+  air_sum: () => confirmScr(`Airtime (${D.mode})`,
+    [`From: ${CARD}`, `To: ${D.to}`, ...(D.mode==='Others'?[`Net: ${D.net}`]:[]), `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
+    () => `Airtime of ${money(D.amt)} sent to ${D.to}. Debited from ${CARD}. Ref: ${ref()}`),
+
+  bun: () => ({ text: 'Internet Bundle\n1. Self\n2. Others\n0. Back',
+    choices: { '1': () => { D.mode='Self'; D.to=MSISDN; D.net='MTN'; return 'bun_cat'; },
+               '2': () => { D.mode='Others'; return 'bun_net'; }, '0':'BACK' } }),
+  bun_cat: () => ({ text: `Internet Bundle (Self)\n${list(CATS)}\n0. Back`,
+    choices: { ...pick(CATS, x => { D.cat = x; D.page = 1; }, 'bun_list'), '0':'BACK' } }),
+  bun_net: () => ({ text: `Internet Bundle (Others)\n${list(NETS)}\n0. Back`,
+    choices: { ...pick(NETS, x => D.net = x, 'bun_num'), '0':'BACK' } }),
+  bun_num: () => ({ text: 'Internet Bundle (Others)\nEnter Beneficiary Mobile Number:',
+    input: v => isPhone(v) ? (D.to = v, D.cat = 'Flexi', D.page = 1, 'bun_list') : { err: 'Enter a 10-digit number starting with 0.' } }),
+  bun_list: () => {
+    const more = D.cat === 'Flexi' && D.page === 1;
+    const items = D.cat === 'Flexi' && D.page === 2 ? BUNDLES.FlexiMore : BUNDLES[D.cat];
+    const ch = { ...pick(items, x => D.bdl = x, 'bun_sum'), '0': () => { if (D.page === 2) { D.page = 1; return 'SAME'; } return 'BACK'; } };
+    if (more) ch[String(items.length+1)] = () => { D.page = 2; return 'SAME'; };
+    return { text: `Internet Bundle (${D.mode})\n${list(items, b => `${b[0]} GHC${b[1]}`)}${more ? `\n${items.length+1}. More` : ''}\n0. Back`, choices: ch };
+  },
+  bun_sum: () => confirmScr(`Internet Bundle (${D.mode})`,
+    [`From: ${CARD}`, `Bdl: ${D.bdl[0]} GHC${D.bdl[1]}`, `To: ${D.to}`, `Net: ${D.net}`, 'Fee: GHC 0'],
+    () => `${D.bdl[0]} bundle activated on ${D.to}. ${money(D.bdl[1])} debited from ${CARD}. Ref: ${ref()}`),
+
+  /* Funds Transfer */
+  ft: () => ({ text: 'Funds Transfer\n1. Own GCB Accounts\n2. Other GCB Accounts\n3. Other Local Banks\n\n8. Back',
+    choices: { '1': () => toSrc('Own GCB Accounts','ft_own_ben'), '2': () => toSrc('Other GCB Accounts','ft_gcb_acct'),
+               '3': () => toSrc('Other Local Banks','ft_lb_bank'), '8':'BACK' } }),
+  src: () => ({ text: `${D.srcTitle}\nSelect Source Account:\n${list(ACCTS)}\n0. Back`,
+    choices: { ...pick(ACCTS, x => D.src = x, D.srcNext), '0':'BACK' } }),
+  ft_own_ben: () => { const o = ACCTS.find(a => a !== D.src);
+    return { text: `Own GCB Accounts\nSelect Beneficiary Account:\n1. ${o}\n0. Back`,
+      choices: { '1': () => { D.dest = o; D.name = NAME; D.ft = 'Own GCB Accounts'; return 'ft_amt'; }, '0':'BACK' } }; },
+  ft_gcb_acct: () => ({ text: 'Other GCB Accounts\nEnter Beneficiary Account Number:',
+    input: v => /^\d{13}$/.test(v) ? (D.dest = mask(v), 'ft_gcb_name') : { err: 'Account number must be 13 digits.' } }),
+  ft_gcb_name: () => ({ text: 'Other GCB Accounts\nBeneficiary Name: Awula Tsotso Mills\n\n1. Confirm\n2. Cancel',
+    choices: { '1': () => { D.name = 'Awula Tsotso Mills'; D.ft = 'Other GCB Accounts'; return 'ft_amt'; }, '2':'cancelled' } }),
+  ft_lb_bank: () => {
+    const p2 = D.bankPage === 2, items = p2 ? BANKS2 : BANKS1;
+    const ch = { ...pick(items, x => D.bank = x, 'ft_lb_acct'), '0': () => { if (p2) { D.bankPage = 1; return 'SAME'; } return 'BACK'; } };
+    if (!p2) ch['6'] = () => { D.bankPage = 2; return 'SAME'; };
+    return { text: `Other Local Banks\nSelect Bank:\n${list(items)}${p2 ? '' : '\n6. More'}\n0. Back`, choices: ch };
+  },
+  ft_lb_acct: () => ({ text: `Other Local Banks\n${D.bank}\nEnter Beneficiary Account Number:`,
+    input: v => /^\d{10,16}$/.test(v) ? (D.dest = mask(v), 'ft_lb_name') : { err: 'Enter a valid account number (10 to 16 digits).' } }),
+  ft_lb_name: () => ({ text: `Other Local Banks\nBank: ${D.bank}\nBeneficiary Name: Kofi Mensah Boateng\n\n1. Confirm\n2. Cancel`,
+    choices: { '1': () => { D.name = 'Kofi Mensah Boateng'; D.ft = 'Other Local Banks'; return 'ft_amt'; }, '2':'cancelled' } }),
+  ft_amt: () => ({ text: `${D.ft}\nEnter Amount:`,
+    input: v => isAmt(v) ? (D.amt = +v, 'ft_sum') : { err: 'Enter a valid amount, e.g. 50.' } }),
+  ft_sum: () => confirmScr(D.ft,
+    [`From: ${D.src}`, `To: ${D.dest}`, ...(D.ft==='Other Local Banks'?[`Bank: ${D.bank}`]:[]), `Name: ${D.name}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
+    () => `Acct ${D.src} debited ${money(D.amt)}. Transfer to ${D.name} (${D.dest}). Ref: ${ref()}`),
+
+  /* Pay Bills */
+  pb: () => ({ text: `Pay Bills\n${list(BILLERS, b => b.n)}\n0. Back`,
+    choices: { ...pick(BILLERS, x => D.biller = x, 'pb_ref'), '0':'BACK' } }),
+  pb_ref: () => ({ text: `${D.biller.n}\nEnter ${D.biller.ref}:`,
+    input: v => /^\d{6,16}$/.test(v) ? (D.ref = v, 'pb_name') : { err: `Enter a valid ${D.biller.ref.toLowerCase()} (6 to 16 digits).` } }),
+  pb_name: () => ({ text: `${D.biller.n}\nName: ${D.biller.name}\n${D.biller.short}: ${D.ref}\n${D.biller.extra}\n\n1. Confirm\n2. Cancel`,
+    choices: { '1':'pb_amt', '2':'cancelled' } }),
+  pb_amt: () => ({ text: `${D.biller.n}\nEnter Amount:`,
+    input: v => isAmt(v) ? (D.amt = +v, toSrc(D.biller.n, 'pb_sum')) : { err: 'Enter a valid amount, e.g. 100.' } }),
+  pb_sum: () => confirmScr(D.biller.n,
+    [`From: ${D.src}`, `${D.biller.short}: ${D.ref}`, `Name: ${D.biller.name}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
+    () => D.biller.n === 'ECG Prepaid'
+      ? `ECG payment of ${money(D.amt)} for meter ${D.ref} successful. Token: 4821-0937-5562-1180-7734. Ref: ${ref()}`
+      : `${D.biller.n} payment of ${money(D.amt)} for ${D.ref} successful. Acct ${D.src} debited. Ref: ${ref()}`),
+
+  /* Mobile Money */
+  mm: () => ({ text: 'Mobile Money\n1. Bank to Own Wallet\n2. Bank to Other Wallet\n3. Wallet to Bank\n0. Back',
+    choices: { '1': () => { D.mm = 'Bank to Own Wallet'; D.wnum = MSISDN; D.wname = NAME; D.wnet = 'MTN MoMo'; return 'mm_amt'; },
+               '2': () => { D.mm = 'Bank to Other Wallet'; return 'mm_net'; },
+               '3': () => { D.mm = 'Wallet to Bank'; D.wnet = 'MTN MoMo'; return 'mm_amt'; }, '0':'BACK' } }),
+  mm_net: () => ({ text: `Bank to Other Wallet\nSelect Beneficiary Network:\n${list(WALLETS)}\n0. Back`,
+    choices: { ...pick(WALLETS, x => D.wnet = x, 'mm_num'), '0':'BACK' } }),
+  mm_num: () => ({ text: 'Bank to Other Wallet\nEnter Wallet Number:',
+    input: v => isPhone(v) ? (D.wnum = v, D.wname = 'Ama Serwaa Owusu', 'mm_name') : { err: 'Enter a 10-digit number starting with 0.' } }),
+  mm_name: () => ({ text: `Bank to Other Wallet\nWallet Name: ${D.wname}\nNumber: ${D.wnum}\n\n1. Confirm\n2. Cancel`,
+    choices: { '1':'mm_amt', '2':'cancelled' } }),
+  mm_amt: () => ({ text: `${D.mm}${D.mm === 'Bank to Own Wallet' ? `\nTo: ${D.wnet} ${D.wnum}` : D.mm === 'Wallet to Bank' ? `\nFrom: ${D.wnet} ${MSISDN}` : ''}\nEnter Amount:`,
+    input: v => isAmt(v) ? (D.amt = +v, D.mm === 'Wallet to Bank' ? 'mm_dest' : toSrc(D.mm,'mm_sum')) : { err: 'Enter a valid amount, e.g. 20.' } }),
+  mm_dest: () => ({ text: `Wallet to Bank\nSelect Destination Account:\n${list(ACCTS)}\n0. Back`,
+    choices: { ...pick(ACCTS, x => D.dest = x, 'mm_sum'), '0':'BACK' } }),
+  mm_sum: () => D.mm === 'Wallet to Bank'
+    ? confirmScr('Wallet to Bank', [`From: ${D.wnet} ${MSISDN}`, `To: ${D.dest}`, `Name: ${NAME}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
+        () => `Acct ${D.dest} credited ${money(D.amt)} from ${D.wnet} ${MSISDN}. Ref: ${ref()}`, 'done_w2b')
+    : confirmScr(D.mm, [`From: ${D.src}`, `To: ${D.wnet} ${D.wnum}`, `Name: ${D.wname}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
+        () => `${money(D.amt)} sent to ${D.wnet} wallet ${D.wnum} (${D.wname}). Acct ${D.src} debited. Ref: ${ref()}`),
+
+  /* GHQR */
+  qr: () => ({ text: 'GHQR Merchant Pay\n1. Enter Merchant ID\n2. Recent Merchants\n0. Back', choices: { '1':'qr_id', '2':'qr_recent', '0':'BACK' } }),
+  qr_id: () => ({ text: 'GHQR Merchant Pay\nEnter Merchant ID:',
+    input: v => /^\d{6,16}$/.test(v) ? (D.mid = v, D.merchant = 'Melcom - Accra Mall', 'qr_name') : { err: 'Enter the merchant ID shown under the GHQR code (6 to 16 digits).' } }),
+  qr_name: () => ({ text: `GHQR Merchant Pay\nMerchant: ${D.merchant}\nID: ${D.mid}\n\n1. Confirm\n2. Cancel`, choices: { '1':'qr_amt', '2':'cancelled' } }),
+  qr_recent: () => ({ text: `Recent Merchants\n${list(MERCHANTS, m => m[0])}\n0. Back`,
+    choices: { ...pick(MERCHANTS, m => { D.merchant = m[0]; D.mid = m[1]; }, 'qr_amt'), '0':'BACK' } }),
+  qr_amt: () => ({ text: `GHQR Merchant Pay\n${D.merchant}\nEnter Amount:`,
+    input: v => isAmt(v) ? (D.amt = +v, toSrc('GHQR Merchant Pay','qr_sum')) : { err: 'Enter a valid amount, e.g. 75.' } }),
+  qr_sum: () => confirmScr('GHQR Merchant Pay', [`From: ${D.src}`, `To: ${D.merchant}`, `ID: ${D.mid}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
+    () => `Payment of ${money(D.amt)} to ${D.merchant} successful. Acct ${D.src} debited. Ref: ${ref()}`),
+
+  /* Card Top Up */
+  ct: () => ({ text: `Card Top Up\n1. My Card ${CARD}\n2. Other GCB Prepaid Card\n0. Back`,
+    choices: { '1': () => { D.card = CARD; D.cname = NAME; return 'ct_amt'; }, '2':'ct_num', '0':'BACK' } }),
+  ct_num: () => ({ text: 'Card Top Up\nEnter 16-digit Card Number:',
+    input: v => /^\d{16}$/.test(v) ? (D.card = v.slice(0,4)+'XXXXXXXX'+v.slice(-4), D.cname = 'Esi Ampofo', 'ct_name') : { err: 'Card number must be 16 digits.' } }),
+  ct_name: () => ({ text: `Card Top Up\nCard Holder: ${D.cname}\nCard: ${D.card}\n\n1. Confirm\n2. Cancel`, choices: { '1':'ct_amt', '2':'cancelled' } }),
+  ct_amt: () => ({ text: 'Card Top Up\nEnter Amount:',
+    input: v => isAmt(v) ? (D.amt = +v, toSrc('Card Top Up','ct_sum')) : { err: 'Enter a valid amount, e.g. 200.' } }),
+  ct_sum: () => confirmScr('Card Top Up', [`From: ${D.src}`, `To: ${D.card}`, `Name: ${D.cname}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
+    () => `Card ${D.card} topped up with ${money(D.amt)}. Acct ${D.src} debited. Ref: ${ref()}`),
+
+  /* OTP Retrieval */
+  otp_pin: () => ({ text: 'OTP Retrieval\nEnter PIN to View OTP:', secret: true,
+    input: pinInput('otp_pin', () => { D.otp = String(Math.floor(100000 + Math.random()*900000)); return 'otp_show'; }) }),
+  otp_show: () => ({ text: `Your OTP is ${D.otp}\nValid for 5 minutes. Never share your OTP with anyone, including GCB staff.\n\n0. Exit`,
+    choices: { '0': END_THANKS } }),
+  otp_unreg: () => ({ text: 'OTP Retrieval\nYou are not registered for GCB Mobile Banking.\n\n1. Register\n0. Exit',
+    choices: { '1':'reg_intro', '0': END_THANKS } }),
+
+  /* Help */
+  help: () => ({ text: 'Help\n1. Change PIN\n2. Reset PIN\n3. Contact Us\n0. Back',
+    choices: { '1': () => registered ? 'cp_old' : 'help_unreg', '2': () => registered ? 'rp_card' : 'help_unreg', '3':'contact', '0':'BACK' } }),
+  help_unreg: () => ({ text: 'You are not registered for GCB Mobile Banking.\n\n1. Register\n0. Back', choices: { '1':'reg_intro', '0':'BACK' } }),
+  cp_old: () => ({ text: 'Change PIN\nEnter Current PIN:', secret: true, input: pinInput('cp_old', () => 'cp_new') }),
+  cp_new: () => ({ text: 'Change PIN\nEnter New 4-digit PIN:', secret: true, input: newPin('cp_new2') }),
+  cp_new2: () => ({ text: 'Change PIN\nConfirm New PIN:', secret: true,
+    input: confirmPin('cp_new', () => { pin = D.newPin; return 'END:Your PIN has been changed successfully.'; }) }),
+  rp_card: () => ({ text: 'Reset PIN\nEnter your Ghana Card Number:',
+    input: v => /^(GHA-?)?\d{9}-?\d$/i.test(v) ? 'rp_acct' : { err: 'Enter the 10 digits on your Ghana Card.' } }),
+  rp_acct: () => ({ text: 'Reset PIN\nEnter your GCB Account Number:',
+    input: v => /^\d{13}$/.test(v) ? 'rp_new' : { err: 'Account number must be 13 digits.' } }),
+  rp_new: () => ({ text: 'Reset PIN\nCreate New 4-digit PIN:', secret: true, input: newPin('rp_new2') }),
+  rp_new2: () => ({ text: 'Reset PIN\nConfirm New PIN:', secret: true,
+    input: confirmPin('rp_new', () => { pin = D.newPin; pinTries = 0; return 'END:Your PIN has been reset. Dial *422# to continue banking.'; }) }),
+  contact: () => ({ text: 'Contact Us\nVisit any GCB branch, or go to www.gcbbank.com.gh for our Contact Centre lines.\n\n0. Back', choices: { '0':'BACK' } }),
+
+  /* Outcomes */
+  done: () => ({ text: 'Your request is being processed and you will be updated shortly.' + ANOTHER, choices: { '1':'menu', '2':END_THANKS } }),
+  done_w2b: () => ({ text: `A payment prompt has been sent to ${MSISDN}. Enter your MoMo PIN on the prompt to approve.` + ANOTHER, choices: { '1':'menu', '2':END_THANKS } }),
+  cancelled: () => ({ text: 'Transaction cancelled.' + ANOTHER, choices: { '1':'menu', '2':END_THANKS } })
+};
+
+/* ---------- Engine ---------- */
+const ussd = $('ussd'), msg = $('msg'), field = $('field'), inp = $('inp'), btns = $('btns'), kb = $('kb'), alertEl = $('alert');
+const fine = matchMedia('(pointer:fine)').matches;
+
+function nav(t){
+  if (typeof t === 'function') t = t();
+  if (!t) return;
+  if (t === 'SAME') return transition(cur);
+  if (t === 'BACK'){ if (stack.length > 1) stack.pop(); return transition(stack[stack.length-1]); }
+  if (t.startsWith('END:')) return transition(null, null, t.slice(4));
+  if (t === 'landing') stack = ['landing'];
+  else if (t === 'menu') stack = ['landing','menu'];
+  else stack.push(t);
+  transition(t);
+}
+
+function buttons(defs){
+  btns.className = 'btns' + (defs.length === 1 ? ' one' : '');
+  btns.innerHTML = '';
+  defs.forEach(([label, cls, fn]) => { const x = document.createElement('button'); x.className = cls; x.textContent = label; x.onclick = fn; btns.appendChild(x); });
+}
+function setMode(mode){
+  const reply = mode === 'reply';
+  ussd.classList.toggle('replying', reply);
+  field.hidden = !reply; kb.hidden = !reply;
+  if (reply){
+    buttons([['Cancel','w',() => setMode('view')],['Send','k',send]]);
+    if (fine) inp.focus({ preventScroll: true });
+  } else {
+    inp.value = '';
+    buttons([['Dismiss','w',() => closeSession('Session dismissed')],['Reply','k',() => setMode('reply')]]);
+  }
+}
+function transition(id, err, endMsg){
+  busy = true;
+  if (dev === 'fp'){ fpSet({ mode:'loading' }); setTimeout(() => endMsg != null ? renderEnd(endMsg) : render(id, err), 900); return; }
+  msg.className = 'msg loading';
+  msg.innerHTML = '<div class="spin"></div><span>USSD code running…</span>';
+  ussd.classList.remove('replying'); field.hidden = true; kb.hidden = true;
+  buttons([['Dismiss','w',() => closeSession('Session dismissed')]]);
+  setTimeout(() => endMsg != null ? renderEnd(endMsg) : render(id, err), 650);
+}
+
+function render(id, err){
+  busy = false; cur = id; curScreen = SC[id]();
+  if (dev === 'fp'){ fpSet({ mode:'view', text: curScreen.text, err, input:'' }); return; }
+  msg.className = 'msg';
+  const [h, ...rest] = curScreen.text.split('\n'); const body = rest.join('\n').replace(/^\n+/, '');
+  msg.innerHTML = `<div class="t">${esc(h)}</div>` + (err ? `<span class="err">${esc(err)}</span>` : '') + (body ? `<div class="b">${esc(body)}</div>` : '');
+  inp.value = ''; msg.scrollTop = 0;
+  setMode('view');
+  logNet(curScreen.text, err);
+  meta(id, curScreen.text);
+}
+
+function renderEnd(text){
+  busy = false; cur = null; curScreen = null;
+  if (dev === 'fp'){ fpSet({ mode:'end', text }); return; }
+  msg.className = 'msg'; msg.textContent = text;
+  ussd.classList.remove('replying'); field.hidden = true; kb.hidden = true;
+  buttons([['Dismiss','w',() => closeSession('Session ended')]]);
+  logNet(text); meta('end', text);
+  if (fine) btns.firstChild.focus({ preventScroll: true });
+}
+
+function send(){
+  if (busy || !curScreen) return;
+  const v = (dev === 'fp' ? fp.input : inp.value).trim();
+  if (!v && dev === 'fp') return;
+  if (!v){ field.classList.remove('shake'); void field.offsetWidth; field.classList.add('shake'); return; }
+  logUser(curScreen.secret ? '••••' : v);
+  if (curScreen.choices){
+    const t = curScreen.choices[v];
+    if (t === undefined) return transition(cur, 'Invalid option. Please try again.');
+    return nav(t);
+  }
+  const r = curScreen.input(v);
+  if (r && typeof r === 'object'){
+    if (r.to){ stack.pop(); stack.push(r.to); return transition(r.to, r.err); }
+    return transition(cur, r.err);
+  }
+  nav(r);
+}
+
+function openSession(startStack){
+  D = {}; active = true; pinTries = 0;
+  showU(true); clearLog();
+  stack = startStack;
+  transition(stack[stack.length-1]);
+}
+function closeSession(note){
+  showU(false); active = false; busy = false; cur = null; curScreen = null;
+  logSys(note); meta(null, '');
+}
+
+function showU(on){ if (dev === 'fp'){ if (!on) fpSet({ mode: dialed ? 'dial' : 'idle' }); return; } ussd.hidden = !on; $('screen').classList.toggle('ussd-on', on); }
+function replay(){ alertEl.style.animation = 'none'; void alertEl.offsetWidth; alertEl.style.animation = ''; }
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- SMS banner ---------- */
+let bannerT;
+function sms(text){
+  if (dev === 'fp') return fpSms(text);
+  $('bannerText').textContent = text;
+  const b = $('banner'); b.classList.add('show');
+  clearTimeout(bannerT); bannerT = setTimeout(() => b.classList.remove('show'), 6000);
+  logSys('SMS: ' + text);
+}
+$('banner').onclick = () => $('banner').classList.remove('show');
+
+/* ---------- Dialer ---------- */
+const KEYS = [['1',''],['2','ABC'],['3','DEF'],['4','GHI'],['5','JKL'],['6','MNO'],['7','PQRS'],['8','TUV'],['9','WXYZ'],['*',''],['0','+'],['#','']];
+let dialed = '';
+const keypad = $('keypad');
+KEYS.forEach(([d,l]) => {
+  const b = document.createElement('button');
+  b.className = 'key' + (d === '*' || d === '#' ? ' sym' : '');
+  b.innerHTML = `<span class="d">${d}</span><span class="l">${l}</span>`;
+  b.setAttribute('aria-label', d);
+  b.dataset.k = d;
+  b.onclick = () => dial(d);
+  keypad.appendChild(b);
+});
+function dial(d){ if (active) return; if (dialed.length < 20) dialed += d; drawDial(); if (dev === 'fp') fpFlash(d); }
+function drawDial(){ if (dev === 'fp' && !active) fpSet({ mode: dialed ? 'dial' : 'idle' }); $('dialNum').textContent = dialed; $('dialDel').classList.toggle('show', !!dialed); $('dialAdd').classList.toggle('show', !!dialed); }
+$('dialDel').onclick = () => { dialed = dialed.slice(0,-1); drawDial(); };
+$('callBtn').onclick = call;
+function call(){
+  if (active) return;
+  if (!dialed){ dialed = '*422#'; drawDial(); return; }
+  if (dialed === '*422#') return openSession(['landing']);
+  showU(true); active = true; clearLog();
+  transition(null, null, /^\*.*#$/.test(dialed) ? 'Connection problem or invalid MMI code.' : 'This prototype only simulates the GCB USSD code *422#.');
+}
+
+/* ---------- Phone pad keyboard ---------- */
+[['1',''],['2','ABC'],['3','DEF'],['4','GHI'],['5','JKL'],['6','MNO'],['7','PQRS'],['8','TUV'],['9','WXYZ'],['*',''],['0',''],['⌫','']].forEach(([d,l]) => {
+  const b = document.createElement('button');
+  b.className = 'kk' + (d === '*' || d === '⌫' ? ' flat' : '');
+  b.innerHTML = d === '⌫'
+    ? '<svg width="26" height="20" viewBox="0 0 24 18" fill="#000"><path d="M22 0H7c-.7 0-1.2.4-1.6.9L0 9l5.4 8.1c.4.5.9.9 1.6.9h15c1.1 0 2-.9 2-2V2c0-1.1-.9-2-2-2Zm-3 12.6L17.6 14 14 10.4 10.4 14 9 12.6 12.6 9 9 5.4 10.4 4 14 7.6 17.6 4 19 5.4 15.4 9l3.6 3.6Z"/></svg>'
+    : `<span class="d">${d}</span><span class="l">${l}</span>`;
+  b.setAttribute('aria-label', d === '⌫' ? 'Delete' : d);
+  b.onmousedown = e => e.preventDefault();
+  b.onclick = () => { if (busy) return; inp.value = d === '⌫' ? inp.value.slice(0,-1) : inp.value + d; };
+  kb.appendChild(b);
+});
+
+/* ---------- Keyboard ---------- */
+inp.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); send(); } });
+document.addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('.panel')) return;
+  if (active){
+    if (e.key === 'Escape') closeSession('Session cancelled');
+    else if (e.key === 'Enter' && !curScreen && !busy) closeSession('Session ended');
+    else if (e.key === 'Enter' && curScreen && field.hidden && !busy){ e.preventDefault(); setMode('reply'); }
+    else if (e.target !== inp && curScreen && !busy && /^[0-9*#]$/.test(e.key)){ if (field.hidden) setMode('reply'); inp.value += e.key; inp.focus({preventScroll:true}); e.preventDefault(); }
+    return;
+  }
+  if (/^[0-9*#]$/.test(e.key)){ dial(e.key); flash(e.key); }
+  else if (e.key === 'Backspace'){ dialed = dialed.slice(0,-1); drawDial(); }
+  else if (e.key === 'Enter'){ e.preventDefault(); call(); }
+});
+function flash(k){ const b = keypad.querySelector(`[data-k="${CSS.escape(k)}"]`); if (!b) return; b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 140); }
+
+/* ---------- Panel ---------- */
+function clearLog(){}
+function logNet(){} function logUser(){} function logSys(){} function meta(){}
+
+function syncSeg(){ $('segNew').setAttribute('aria-pressed', String(!registered)); $('segReg').setAttribute('aria-pressed', String(registered)); }
+function resetPhone(){ if (active) closeSession('Phone reset'); dialed = ''; drawDial(); }
+$('segNew').onclick = () => { registered = false; pin = null; syncSeg(); resetPhone(); };
+$('segReg').onclick = () => { registered = true; syncSeg(); resetPhone(); };
+$('restart').onclick = resetPhone;
+$('autoDial').onclick = () => {
+  resetPhone(); let i = 0; const s = '*422#';
+  const t = setInterval(() => { if (i < s.length){ dial(s[i]); flash(s[i]); i++; } else { clearInterval(t); setTimeout(call, 250); } }, 160);
+};
+
+const JUMPS = [
+  ['Registration','reg_intro',false,['landing','reg_intro']],
+  ['Main menu','menu',true],
+  ['Airtime','air',true,['landing','menu','ab','air']],
+  ['Internet Bundle','bun',true,['landing','menu','ab','bun']],
+  ['Funds Transfer','ft',true],
+  ['Pay Bills','pb',true],
+  ['Mobile Money','mm',true],
+  ['GHQR Merchant Pay','qr',true],
+  ['Card Top Up','ct',true],
+  ['OTP Retrieval','otp_pin',true,['landing','otp_pin']],
+  ['Help','help',null,['landing','help']]
+];
+JUMPS.forEach(([label, id, reg, st]) => {
+  const b = document.createElement('button'); b.className = 'btn'; b.textContent = label;
+  b.onclick = () => {
+    if (reg !== null){ registered = reg; if (!reg) pin = null; syncSeg(); }
+    if (active) { showU(false); active = false; }
+    dialed = '*422#'; drawDial();
+    openSession(st ? st.slice() : (id === 'menu' ? ['landing','menu'] : ['landing','menu',id]));
+  };
+  $('jumps').appendChild(b);
+});
+
+
+/* ---------- Keypad phone ---------- */
+let dev = 'ios';
+const fp = { mode:'idle', text:'', err:null, input:'' };
+const fpBody = $('fpBody');
+let fpMsgT;
+function fpSet(o){ Object.assign(fp, o); fpDraw(); }
+function soft(l, c, r){ $('fpL').textContent = l || ''; $('fpC').textContent = c || ''; $('fpR').textContent = r || ''; }
+function fpDraw(){
+  const m = fp.mode;
+  if (m === 'idle'){
+    fpBody.innerHTML = '<div class="fp-idle"><div class="op">MTN GH</div><div class="tm">09:41</div><div class="dt">Tue, 06 Oct</div></div>';
+    soft('Menu', '', 'Contacts');
+  } else if (m === 'dial'){
+    fpBody.innerHTML = `<div class="fp-dial"><div class="num">${esc(dialed)}</div></div>`;
+    soft('Options', '', 'Clear');
+  } else if (m === 'loading'){
+    fpBody.innerHTML = '<div class="fp-load">Sending request<div class="pb"><i></i></div></div>';
+    soft('', '', 'Cancel');
+  } else if (m === 'view' || m === 'end'){
+    fpBody.innerHTML = `<div class="fp-scroll" id="fpScroll">${fp.err ? `<span class="err">${esc(fp.err)}</span>` : ''}${esc(fp.text)}</div><div class="fp-bar" id="fpBar" hidden><i></i></div>`;
+    const sc = $('fpScroll'); sc.onscroll = fpBarDraw; fpBarDraw();
+    if (m === 'view') soft('Reply', sc.scrollHeight > sc.clientHeight + 2 ? '▼' : '', 'Exit');
+    else soft('', 'OK', 'Exit');
+  } else if (m === 'reply'){
+    fpBody.innerHTML = `<div class="fp-reply"><div class="hd">Reply<span>123</span></div><div class="box">${esc(curScreen && curScreen.secret ? '*'.repeat(fp.input.length) : fp.input)}<span class="cur"></span></div><div class="hint">Enter option or value</div></div>`;
+    soft('Send', '', fp.input ? 'Clear' : 'Back');
+  }
+}
+function fpBarDraw(){
+  const sc = $('fpScroll'), bar = $('fpBar'); if (!sc || !bar) return;
+  const over = sc.scrollHeight > sc.clientHeight + 2; bar.hidden = !over; if (!over) return;
+  const h = sc.clientHeight / sc.scrollHeight * 100, t = sc.scrollTop / sc.scrollHeight * 100;
+  bar.firstElementChild.style.cssText = `top:${t}%;height:${h}%`;
+  if (fp.mode === 'view') $('fpC').textContent = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2 ? '▲' : '▼';
+}
+function fpScroll(dy){ const sc = $('fpScroll'); if (sc) sc.scrollTop += dy; }
+function fpSms(text){
+  const box = document.createElement('div'); box.className = 'fp-msg';
+  box.innerHTML = `<b>1 new message</b><div>GCB Bank: ${esc(text)}</div>`;
+  fpBody.parentElement.appendChild(box);
+  clearTimeout(fpMsgT); fpMsgT = setTimeout(() => box.remove(), 5000);
+  box.onclick = () => box.remove();
+}
+function fpKey(k){
+  const m = fp.mode;
+  if (k === 'end'){ if (active) closeSession('Session ended'); dialed = ''; fpSet({ mode:'idle' }); return; }
+  if (/^[0-9*#]$/.test(k)){
+    if (!active){ if (dialed.length < 20) dialed += k; fpSet({ mode:'dial' }); return; }
+    if (m === 'view'){ fpSet({ mode:'reply', input:k }); return; }
+    if (m === 'reply'){ if (fp.input.length < 30) fpSet({ input: fp.input + k }); return; }
+    return;
+  }
+  if (k === 'up' || k === 'down'){ fpScroll(k === 'up' ? -40 : 40); return; }
+  if (m === 'idle' || m === 'dial'){
+    if (k === 'call' || k === 'ok'){ if (dialed) call(); return; }
+    if (k === 'sr' && m === 'dial'){ dialed = dialed.slice(0,-1); fpSet({ mode: dialed ? 'dial' : 'idle' }); }
+    return;
+  }
+  if (m === 'loading'){ if (k === 'sr') closeSession('Session cancelled'); return; }
+  if (m === 'view'){
+    if (k === 'sl' || k === 'ok') fpSet({ mode:'reply', input:'' });
+    else if (k === 'sr') closeSession('Session dismissed');
+    return;
+  }
+  if (m === 'reply'){
+    if (k === 'sl' || k === 'ok' || k === 'call') send();
+    else if (k === 'sr'){ if (fp.input) fpSet({ input: fp.input.slice(0,-1) }); else fpSet({ mode:'view' }); }
+    return;
+  }
+  if (m === 'end'){ if (k === 'sl' || k === 'ok' || k === 'sr' || k === 'call') closeSession('Session ended'); }
+}
+[['1','.,'],['2','abc'],['3','def'],['4','ghi'],['5','jkl'],['6','mno'],['7','pqrs'],['8','tuv'],['9','wxyz'],['*','+'],['0','␣'],['#','⇧']].forEach(([d,l]) => {
+  const b = document.createElement('button'); b.className = 'fk n'; b.dataset.fk = d; b.setAttribute('aria-label', d);
+  b.innerHTML = `<span class="dg">${d}</span><span class="lt">${l}</span>`; $('fpNum').appendChild(b);
+});
+$('fp').addEventListener('click', e => { const b = e.target.closest('[data-fk]'); if (b) fpKey(b.dataset.fk); });
+function fpFlash(k){ const b = $('fp').querySelector(`[data-fk="${CSS.escape(k)}"]`); if (!b) return; b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 140); }
+document.addEventListener('keydown', e => {
+  if (dev !== 'fp' || (e.target.closest && e.target.closest('.panel'))) return;
+  const map = { Enter:'ok', Escape:'end', Backspace:'sr', ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right' };
+  const k = /^[0-9*#]$/.test(e.key) ? e.key : map[e.key];
+  if (!k) return;
+  e.preventDefault(); e.stopImmediatePropagation(); fpFlash(k); fpKey(k);
+}, true);
+function setDev(d){
+  resetPhone(); dev = d;
+  $('fp').hidden = d !== 'fp'; $('device').hidden = d === 'fp';
+  $('devIos').setAttribute('aria-pressed', String(d === 'ios')); $('devFp').setAttribute('aria-pressed', String(d === 'fp'));
+  if (d === 'fp') fpSet({ mode:'idle', input:'' });
+  fit();
+}
+$('devIos').onclick = () => setDev('ios');
+$('devFp').onclick = () => setDev('fp');
+
+/* ---------- Scale phone to viewport ---------- */
+const stage = $('stage'), device = $('device');
+function fit(){
+  const el = dev === 'fp' ? $('fp') : device, W = dev === 'fp' ? 296 : 421, H = dev === 'fp' ? 700 : 880;
+  const narrow = innerWidth <= 900;
+  const colW = narrow ? (document.querySelector('.wrap').clientWidth - 32) : W;
+  const availH = narrow ? H : innerHeight - 40;
+  const s = Math.max(.5, Math.min(1, availH/H, colW/W));
+  el.style.transform = `scale(${s})`;
+  stage.style.width = W*s + 'px'; stage.style.height = H*s + 'px';
+}
+addEventListener('resize', fit); fit();
+drawDial(); meta(null, '');
+})();
+</script>
+</body>
+</html>
