@@ -432,7 +432,7 @@ function confirmPin(back, done){
 
 /* ---------- Screens ---------- */
 const SC = {
-  landing: () => ({ text: 'Welcome to GCB Digital\n1. GCB Mobile Banking\n2. OTP Retrieval\n3. Help\n\n0. Exit',
+  landing: () => ({ text: 'Welcome to GCB Digital\n1. GCB Mobile Banking\n2. Code Retrieval\n3. Help\n\n0. Exit',
     choices: { '1': () => registered ? 'login' : 'reg_card', '2': () => registered ? 'otp_pin' : 'otp_unreg', '3': 'help', '0': 'END:Thank you for choosing GCB.' } }),
 
   /* Registration */
@@ -587,12 +587,12 @@ const SC = {
   ct_sum: () => confirmScr('Card Top Up', [`From: ${D.src}`, `To: ${D.card}`, `Name: ${D.cname}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
     () => `Card ${D.card} topped up with ${money(D.amt)}. Acct ${D.src} debited. Ref: ${ref()}`),
 
-  /* OTP Retrieval */
-  otp_pin: () => ({ text: 'OTP Retrieval\nEnter PIN to View OTP:', secret: true,
+  /* Code Retrieval */
+  otp_pin: () => ({ text: 'Code Retrieval\nEnter PIN to View OTP:', secret: true,
     input: pinInput('otp_pin', () => { D.otp = String(Math.floor(100000 + Math.random()*900000)); return 'otp_show'; }) }),
   otp_show: () => ({ text: `Your OTP is ${D.otp}\nValid for 5 minutes. Never share your OTP with anyone, including GCB staff.\n\n0. Exit`,
     choices: { '0': END_THANKS } }),
-  otp_unreg: () => ({ text: 'OTP Retrieval\nYou are not registered for GCB Mobile Banking.\n\n1. Register\n0. Exit',
+  otp_unreg: () => ({ text: 'Code Retrieval\nYou are not registered for GCB Mobile Banking.\n\n1. Register\n0. Exit',
     choices: { '1':'reg_card', '0': END_THANKS } }),
 
   /* Help */
@@ -807,7 +807,7 @@ const JUMPS = [
   ['Mobile Money','mm',true],
   ['GHQR Merchant Pay','qr',true],
   ['Card Top Up','ct',true],
-  ['OTP Retrieval','otp_pin',true,['landing','otp_pin']],
+  ['Code Retrieval','otp_pin',true,['landing','otp_pin']],
   ['Help','help',null,['landing','help']]
 ];
 JUMPS.forEach(([label, id, reg, st]) => {
