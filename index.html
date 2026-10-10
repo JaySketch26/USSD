@@ -432,7 +432,7 @@ function confirmPin(back, done){
 
 /* ---------- Screens ---------- */
 const SC = {
-  landing: () => ({ text: 'Welcome to GCB Digital\n1. GCB Mobile Banking\n2. Code Retrieval\n3. Help\n\n0. Exit',
+  landing: () => ({ text: 'Welcome to GCB Digital\n1. GCB Mobile Banking\n2. OTP Retrieval\n3. Help\n\n0. Exit',
     choices: { '1': () => registered ? 'login' : 'reg_card', '2': () => registered ? 'otp_pin' : 'otp_unreg', '3': 'help', '0': 'END:Thank you for choosing GCB.' } }),
 
   /* Registration */
@@ -444,15 +444,15 @@ const SC = {
     choices: { '1': 'reg_pin', '0': 'END:Registration cancelled.' } }),
   reg_pin: () => ({ text: 'Create Your 4-digit PIN:', secret: true, input: newPin('reg_pin2') }),
   reg_pin2: () => ({ text: 'Confirm PIN:', secret: true, input: confirmPin('reg_pin', () => 'reg_terms') }),
-  reg_terms: () => ({ text: 'Almost Done\nI Accept Terms and Conditions at https://www.gcbbank.com.gh/electronic-terms.\n\n1. Accept\n2. Decline',
+  reg_terms: () => ({ text: 'Almost Done\nAccept Electronic Banking Terms & Conditions? \n (View at https://www.gcbbank.com.gh/electronic-terms)\n\n1. Accept\n2. Decline',
     choices: { '1': () => { registered = true; pin = D.newPin; syncSeg(); setTimeout(() => sms(`Welcome to GCB Mobile Banking, Justice. Dial *422# anytime to bank on the go. Never share your PIN.`), 2600); return 'reg_done'; },
       '2': 'END:Registration not completed. You need to accept the Terms and Conditions to use GCB Mobile Banking.' } }),
   reg_done: () => ({ text: 'Registration Completed\n\n1. Start Banking\n2. Exit', choices: { '1': 'menu', '2': END_THANKS } }),
 
   /* Sign-in + main menu */
   login: () => ({ text: 'GCB Mobile Banking\nEnter your 4-digit PIN:', secret: true, input: pinInput('login', () => 'menu') }),
-  menu: () => ({ text: 'GCB Mobile Banking\n1. Airtime & Bundles\n2. Funds Transfer\n3. Pay Bills\n4. Mobile Money\n5. GHQR Merchant Pay\n6. Card Top Up\n0. Exit',
-    choices: { '1':'ab','2':'ft','3':'pb','4':'mm','5':'qr','6':'ct','0':END_THANKS } }),
+  menu: () => ({ text: 'GCB Mobile Banking\n1. Funds Transfer\n2. Mobile Money\n3. Airtime & Bundles\n4. Pay Bill\n5. GHQR Merchant Pay\n6. Card Top Up\n0. Exit',
+    choices: { '1':'ft','2':'mm','3':'ab','4':'pb','5':'qr','6':'ct','0':END_THANKS } }),
 
   /* Airtime & Bundles */
   ab: () => ({ text: 'Airtime & Bundles\n1. Airtime\n2. Internet Bundle\n3. Broadband\n0. Back', choices: { '1':'air','2':'bun','3':'bb','0':'BACK' } }),
@@ -587,12 +587,12 @@ const SC = {
   ct_sum: () => confirmScr('Card Top Up', [`From: ${D.src}`, `To: ${D.card}`, `Name: ${D.cname}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
     () => `Card ${D.card} topped up with ${money(D.amt)}. Acct ${D.src} debited. Ref: ${ref()}`),
 
-  /* Code Retrieval */
-  otp_pin: () => ({ text: 'Code Retrieval\nEnter PIN to View OTP:', secret: true,
+  /* OTP Retrieval */
+  otp_pin: () => ({ text: 'OTP Retrieval\nEnter PIN to View OTP:', secret: true,
     input: pinInput('otp_pin', () => { D.otp = String(Math.floor(100000 + Math.random()*900000)); return 'otp_show'; }) }),
   otp_show: () => ({ text: `Your OTP is ${D.otp}\nValid for 5 minutes. Never share your OTP with anyone, including GCB staff.\n\n0. Exit`,
     choices: { '0': END_THANKS } }),
-  otp_unreg: () => ({ text: 'Code Retrieval\nYou are not registered for GCB Mobile Banking.\n\n1. Register\n0. Exit',
+  otp_unreg: () => ({ text: 'OTP Retrieval\nYou are not registered for GCB Mobile Banking.\n\n1. Register\n0. Exit',
     choices: { '1':'reg_card', '0': END_THANKS } }),
 
   /* Help */
@@ -807,7 +807,7 @@ const JUMPS = [
   ['Mobile Money','mm',true],
   ['GHQR Merchant Pay','qr',true],
   ['Card Top Up','ct',true],
-  ['Code Retrieval','otp_pin',true,['landing','otp_pin']],
+  ['OTP Retrieval','otp_pin',true,['landing','otp_pin']],
   ['Help','help',null,['landing','help']]
 ];
 JUMPS.forEach(([label, id, reg, st]) => {
