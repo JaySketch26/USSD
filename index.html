@@ -444,7 +444,7 @@ const SC = {
     choices: { '1': 'reg_pin', '0': 'END:Registration cancelled.' } }),
   reg_pin: () => ({ text: 'Create Your 4-digit PIN:', secret: true, input: newPin('reg_pin2') }),
   reg_pin2: () => ({ text: 'Confirm PIN:', secret: true, input: confirmPin('reg_pin', () => 'reg_terms') }),
-  reg_terms: () => ({ text: 'Almost Done\nAccept Electronic Banking Terms & Conditions? \n (View at https://www.gcbbank.com.gh/electronic-terms)\n\n1. Accept\n2. Decline',
+  reg_terms: () => ({ text: 'Almost Done\nAccept Electronic Banking Terms & Conditions?\n(View at https://www.gcbbank.com.gh/electronic-terms)\n\n1. Accept\n2. Decline',
     choices: { '1': () => { registered = true; pin = D.newPin; syncSeg(); setTimeout(() => sms(`Welcome to GCB Mobile Banking, Justice. Dial *422# anytime to bank on the go. Never share your PIN.`), 2600); return 'reg_done'; },
       '2': 'END:Registration not completed. You need to accept the Terms and Conditions to use GCB Mobile Banking.' } }),
   reg_done: () => ({ text: 'Registration Completed\n\n1. Start Banking\n2. Exit', choices: { '1': 'menu', '2': END_THANKS } }),
