@@ -158,7 +158,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold-strong);ou
 .fp-dial .hint{font-size:11px;color:#68727d;margin-bottom:6px;text-align:left}
 .fp-scroll{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;padding:6px 12px 8px 8px;font-size:14px;line-height:1.32;white-space:pre-wrap;overflow-wrap:anywhere}
 .fp-scroll::-webkit-scrollbar{display:none}
-.fp-scroll .err{display:block;color:#C4140A;font-weight:700;margin-bottom:3px}
+.fp-scroll .err{display:block;color:#C4140A;font-weight:700;margin:2px 0 3px}
 .fp-bar{position:absolute;top:4px;bottom:4px;right:2px;width:4px;border-radius:2px;background:#e1e5ea}
 .fp-bar i{position:absolute;left:0;right:0;border-radius:2px;background:#5b6b80}
 .fp-load{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-size:14px;font-weight:700}
@@ -388,6 +388,13 @@ const BANKS1 = ['Absa Bank','CalBank','Ecobank','Fidelity Bank','Stanbic Bank'];
 const BANKS2 = ['Access Bank','Republic Bank','Societe Generale','Zenith Bank'];
 const MERCHANTS = [['Melcom - Accra Mall','104882'],['Shoprite - Junction Mall','220931'],['Papaye - Osu','318774']];
 
+const SAL_ACCT = '******7878';
+const LOANS = [{ amt: 500, repay: 514, due: '28 Oct 2026', ref: 'GCB5512093344' }];
+const BAL = [[4250.75, 4300.75], [1180.20, 1180.20]];
+const STMT = ['10/10 Airtime -5.00','09/10 MoMo In +200.00','08/10 ECG Prepaid -100.00','07/10 Transfer -350.00','05/10 Salary +4,800.00','04/10 GHQR Pay -75.00','03/10 Bundle -10.00','02/10 Card Top Up -200.00','01/10 MoMo Out -50.00','30/09 Charges -2.50'];
+const fmt = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const saQuote = a => ({ amt: fmt(a), fee: (a*0.072).toFixed(2), get: (a - a*0.072).toFixed(2), repay: (a*1.028).toFixed(2) });
+const dueDate = () => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); };
 let registered = false, pin = null, pinTries = 0;
 let D = {}, stack = [], cur = null, curScreen = null, busy = false, active = false;
 
@@ -405,7 +412,7 @@ const ANOTHER = '\nDo you want to perform another transaction?\n1. Yes\n2. No';
 const END_THANKS = 'END:Thank you for banking with GCB.';
 
 function confirmScr(title, lines, onOk, next = 'done'){
-  return { text: `${title}\n${lines.join('\n')}\n\n1. Confirm\n2. Cancel`,
+  return { text: `${title}\n${lines.join('\n')}\n\n1. Confirm\n2. Decline`,
     choices: { '1': () => { if (onOk) setTimeout(() => sms(onOk()), 2600); return next; }, '2': 'cancelled' } };
 }
 function pinInput(label, onOk){
@@ -413,7 +420,7 @@ function pinInput(label, onOk){
     if (!/^\d{4}$/.test(v)) return { err: 'PIN must be 4 digits.' };
     if (pin && v !== pin){
       pinTries++;
-      if (pinTries >= 3) return 'END:Your PIN has been blocked after 3 wrong attempts. Dial *422# and select Help > Reset PIN.';
+      if (pinTries >= 3) return 'END:Your PIN has been blocked after 3 wrong attempts. Call our toll-free line 0800 422 422 to reset it.';
       return { err: `Incorrect PIN. ${3-pinTries} attempt${3-pinTries>1?'s':''} left.` };
     }
     pinTries = 0; return onOk(v);
@@ -422,37 +429,37 @@ function pinInput(label, onOk){
 function newPin(next){
   return v => {
     if (!/^\d{4}$/.test(v)) return { err: 'PIN must be 4 digits.' };
-    if (weak(v)) return { err: 'PIN is too easy to guess. Avoid repeated or sequential digits.' };
+    if (weak(v)) return { err: 'Avoid repeated or sequential digits. Please try again' };
     D.newPin = v; return next;
   };
 }
 function confirmPin(back, done){
-  return v => v === D.newPin ? done() : { err: 'PINs do not match. Try again.', to: back };
+  return v => v === D.newPin ? done() : { err: 'PINs do not match. Please try again.' };
 }
 
 /* ---------- Screens ---------- */
 const SC = {
-  landing: () => ({ text: 'Welcome to GCB Digital\n1. GCB Mobile Banking\n2. Code Retrieval\n3. Help\n\n0. Exit',
+  landing: () => ({ text: 'Welcome to GCB Digital\n1. GCB Mobile Banking\n2. OTP Retrieval\n3. Help\n\n0. Exit',
     choices: { '1': () => registered ? 'login' : 'reg_card', '2': () => registered ? 'otp_pin' : 'otp_unreg', '3': 'help', '0': 'END:Thank you for choosing GCB.' } }),
 
   /* Registration */
-  reg_card: () => ({ text: 'Register\nEnter Ghana Card Number:\n(e.g. GHAXXXXXXXXX0)',
+  reg_card: () => ({ text: 'Register\nEnter your Ghana Card number:\n(e.g. GHAXXXXXXXXXX)',
     input: v => /^(GHA-?)?\d{9}-?\d$/i.test(v) ? (D.gcard = v, 'reg_acct') : { err: 'Enter your Ghana Card number, e.g. GHA7234567890.' } }),
-  reg_acct: () => ({ text: 'Register\nEnter your GCB Account Number:',
+  reg_acct: () => ({ text: 'Register\nEnter your GCB account number:',
     input: v => /^\d{13}$/.test(v) ? (D.acct = v, 'reg_confirm') : { err: 'Account number must be 13 digits.' } }),
-  reg_confirm: () => ({ text: `Confirm Your Details\nName: ${NAME}\nAcct: ${mask(D.acct||'')}\n\n1. Continue\n\n0. Cancel`,
-    choices: { '1': 'reg_pin', '0': 'END:Registration cancelled.' } }),
-  reg_pin: () => ({ text: 'Create Your 4-digit PIN:', secret: true, input: newPin('reg_pin2') }),
-  reg_pin2: () => ({ text: 'Confirm PIN:', secret: true, input: confirmPin('reg_pin', () => 'reg_terms') }),
-  reg_terms: () => ({ text: 'Almost Done\nI agree to the Terms and Conditions at https://www.gcbbank.com.gh/electronic-terms.\n\n1. Yes\n2. No',
+  reg_confirm: () => ({ text: `Confirm Your Details\nName: ${NAME}\nAccount: ${mask(D.acct||'')}\n\n1. Confirm\n2. Decline`,
+    choices: { '1': 'reg_pin', '2': 'END:Registration cancelled.' } }),
+  reg_pin: () => ({ text: 'Create your 4-digit PIN:', secret: true, input: newPin('reg_pin2') }),
+  reg_pin2: () => ({ text: 'Re-enter your PIN:', secret: true, input: confirmPin('reg_pin', () => 'reg_terms') }),
+  reg_terms: () => ({ text: 'Almost Done\nAccept Electronic Banking Terms & Conditions?\n(View at https://www.gcbbank.com.gh/electronic-terms)\n\n1. Accept\n2. Decline',
     choices: { '1': () => { registered = true; pin = D.newPin; syncSeg(); setTimeout(() => sms(`Welcome to GCB Mobile Banking, Justice. Dial *422# anytime to bank on the go. Never share your PIN.`), 2600); return 'reg_done'; },
       '2': 'END:Registration not completed. You need to accept the Terms and Conditions to use GCB Mobile Banking.' } }),
-  reg_done: () => ({ text: 'Registration Completed\n\n1. Start Banking\n2. Exit', choices: { '1': 'menu', '2': END_THANKS } }),
+  reg_done: () => ({ text: 'Registration Successful. Enjoy a seamless banking experience\n\n1. Start\n2. Exit', choices: { '1': 'menu', '2': END_THANKS } }),
 
   /* Sign-in + main menu */
   login: () => ({ text: 'GCB Mobile Banking\nEnter your 4-digit PIN:', secret: true, input: pinInput('login', () => 'menu') }),
-  menu: () => ({ text: 'GCB Mobile Banking\n1. Airtime & Bundles\n2. Funds Transfer\n3. Pay Bills\n4. Mobile Money\n5. GHQR Merchant Pay\n6. Card Top Up\n0. Exit',
-    choices: { '1':'ab','2':'ft','3':'pb','4':'mm','5':'qr','6':'ct','0':END_THANKS } }),
+  menu: () => ({ text: 'GCB Mobile Banking\n1. Mobile Money\n2. Funds Transfer\n3. Airtime & Bundles\n4. Pay Bill\n5. GHQR Merchant Pay\n6. Salary Advance\n7. My Account\n0. Exit',
+    choices: { '1':'mm','2':'ft','3':'ab','4':'pb','5':'qr','6':'sa','7':'acc','0':END_THANKS } }),
 
   /* Airtime & Bundles */
   ab: () => ({ text: 'Airtime & Bundles\n1. Airtime\n2. Internet Bundle\n3. Broadband\n0. Back', choices: { '1':'air','2':'bun','3':'bb','0':'BACK' } }),
@@ -500,9 +507,9 @@ const SC = {
     () => `${D.bdl[0]} broadband bundle activated on ${D.to}. ${money(D.bdl[1])} debited from ${CARD}. Ref: ${ref()}`),
 
   /* Funds Transfer */
-  ft: () => ({ text: 'Funds Transfer\n1. Own GCB Accounts\n2. Other GCB Accounts\n3. Other Local Banks\n\n8. Back',
+  ft: () => ({ text: 'Funds Transfer\n1. Own GCB Accounts\n2. Other GCB Accounts\n3. Other Local Banks\n0. Back',
     choices: { '1': () => toSrc('Own GCB Accounts','ft_own_ben'), '2': () => toSrc('Other GCB Accounts','ft_gcb_acct'),
-               '3': () => toSrc('Other Local Banks','ft_lb_bank'), '8':'BACK' } }),
+               '3': () => toSrc('Other Local Banks','ft_lb_bank'), '0':'BACK' } }),
   src: () => ({ text: `${D.srcTitle}\nSelect Source Account:\n${list(ACCTS)}\n0. Back`,
     choices: { ...pick(ACCTS, x => D.src = x, D.srcNext), '0':'BACK' } }),
   ft_own_ben: () => { const o = ACCTS.find(a => a !== D.src);
@@ -510,7 +517,7 @@ const SC = {
       choices: { '1': () => { D.dest = o; D.name = NAME; D.ft = 'Own GCB Accounts'; return 'ft_amt'; }, '0':'BACK' } }; },
   ft_gcb_acct: () => ({ text: 'Other GCB Accounts\nEnter Beneficiary Account Number:',
     input: v => /^\d{13}$/.test(v) ? (D.dest = mask(v), 'ft_gcb_name') : { err: 'Account number must be 13 digits.' } }),
-  ft_gcb_name: () => ({ text: 'Other GCB Accounts\nBeneficiary Name: Awula Tsotso Mills\n\n1. Confirm\n2. Cancel',
+  ft_gcb_name: () => ({ text: 'Other GCB Accounts\nBeneficiary Name: Awula Tsotso Mills\n\n1. Confirm\n2. Decline',
     choices: { '1': () => { D.name = 'Awula Tsotso Mills'; D.ft = 'Other GCB Accounts'; return 'ft_amt'; }, '2':'cancelled' } }),
   ft_lb_bank: () => {
     const p2 = D.bankPage === 2, items = p2 ? BANKS2 : BANKS1;
@@ -520,7 +527,7 @@ const SC = {
   },
   ft_lb_acct: () => ({ text: `Other Local Banks\n${D.bank}\nEnter Beneficiary Account Number:`,
     input: v => /^\d{10,16}$/.test(v) ? (D.dest = mask(v), 'ft_lb_name') : { err: 'Enter a valid account number (10 to 16 digits).' } }),
-  ft_lb_name: () => ({ text: `Other Local Banks\nBank: ${D.bank}\nBeneficiary Name: Kofi Mensah Boateng\n\n1. Confirm\n2. Cancel`,
+  ft_lb_name: () => ({ text: `Other Local Banks\nBank: ${D.bank}\nBeneficiary Name: Kofi Mensah Boateng\n\n1. Confirm\n2. Decline`,
     choices: { '1': () => { D.name = 'Kofi Mensah Boateng'; D.ft = 'Other Local Banks'; return 'ft_amt'; }, '2':'cancelled' } }),
   ft_amt: () => ({ text: `${D.ft}\nEnter Amount:`,
     input: v => isAmt(v) ? (D.amt = +v, 'ft_sum') : { err: 'Enter a valid amount, e.g. 50.' } }),
@@ -533,7 +540,7 @@ const SC = {
     choices: { ...pick(BILLERS, x => D.biller = x, 'pb_ref'), '0':'BACK' } }),
   pb_ref: () => ({ text: `${D.biller.n}\nEnter ${D.biller.ref}:`,
     input: v => /^\d{6,16}$/.test(v) ? (D.ref = v, 'pb_name') : { err: `Enter a valid ${D.biller.ref.toLowerCase()} (6 to 16 digits).` } }),
-  pb_name: () => ({ text: `${D.biller.n}\nName: ${D.biller.name}\n${D.biller.short}: ${D.ref}\n${D.biller.extra}\n\n1. Confirm\n2. Cancel`,
+  pb_name: () => ({ text: `${D.biller.n}\nName: ${D.biller.name}\n${D.biller.short}: ${D.ref}\n${D.biller.extra}\n\n1. Confirm\n2. Decline`,
     choices: { '1':'pb_amt', '2':'cancelled' } }),
   pb_amt: () => ({ text: `${D.biller.n}\nEnter Amount:`,
     input: v => isAmt(v) ? (D.amt = +v, toSrc(D.biller.n, 'pb_sum')) : { err: 'Enter a valid amount, e.g. 100.' } }),
@@ -552,7 +559,7 @@ const SC = {
     choices: { ...pick(WALLETS, x => D.wnet = x, 'mm_num'), '0':'BACK' } }),
   mm_num: () => ({ text: 'Bank to Other Wallet\nEnter Wallet Number:',
     input: v => isPhone(v) ? (D.wnum = v, D.wname = 'Ama Serwaa Owusu', 'mm_name') : { err: 'Enter a 10-digit number starting with 0.' } }),
-  mm_name: () => ({ text: `Bank to Other Wallet\nWallet Name: ${D.wname}\nNumber: ${D.wnum}\n\n1. Confirm\n2. Cancel`,
+  mm_name: () => ({ text: `Bank to Other Wallet\nWallet Name: ${D.wname}\nNumber: ${D.wnum}\n\n1. Confirm\n2. Decline`,
     choices: { '1':'mm_amt', '2':'cancelled' } }),
   mm_amt: () => ({ text: `${D.mm}${D.mm === 'Bank to Own Wallet' ? `\nTo: ${D.wnet} ${D.wnum}` : D.mm === 'Wallet to Bank' ? `\nFrom: ${D.wnet} ${MSISDN}` : ''}\nEnter Amount:`,
     input: v => isAmt(v) ? (D.amt = +v, D.mm === 'Wallet to Bank' ? 'mm_dest' : toSrc(D.mm,'mm_sum')) : { err: 'Enter a valid amount, e.g. 20.' } }),
@@ -568,7 +575,7 @@ const SC = {
   qr: () => ({ text: 'GHQR Merchant Pay\n1. Enter Merchant ID\n2. Recent Merchants\n0. Back', choices: { '1':'qr_id', '2':'qr_recent', '0':'BACK' } }),
   qr_id: () => ({ text: 'GHQR Merchant Pay\nEnter Merchant ID:',
     input: v => /^\d{6,16}$/.test(v) ? (D.mid = v, D.merchant = 'Melcom - Accra Mall', 'qr_name') : { err: 'Enter the merchant ID shown under the GHQR code (6 to 16 digits).' } }),
-  qr_name: () => ({ text: `GHQR Merchant Pay\nMerchant: ${D.merchant}\nID: ${D.mid}\n\n1. Confirm\n2. Cancel`, choices: { '1':'qr_amt', '2':'cancelled' } }),
+  qr_name: () => ({ text: `GHQR Merchant Pay\nMerchant: ${D.merchant}\nID: ${D.mid}\n\n1. Confirm\n2. Decline`, choices: { '1':'qr_amt', '2':'cancelled' } }),
   qr_recent: () => ({ text: `Recent Merchants\n${list(MERCHANTS, m => m[0])}\n0. Back`,
     choices: { ...pick(MERCHANTS, m => { D.merchant = m[0]; D.mid = m[1]; }, 'qr_amt'), '0':'BACK' } }),
   qr_amt: () => ({ text: `GHQR Merchant Pay\n${D.merchant}\nEnter Amount:`,
@@ -581,36 +588,74 @@ const SC = {
     choices: { '1': () => { D.card = CARD; D.cname = NAME; return 'ct_amt'; }, '2':'ct_num', '0':'BACK' } }),
   ct_num: () => ({ text: 'Card Top Up\nEnter 16-digit Card Number:',
     input: v => /^\d{16}$/.test(v) ? (D.card = v.slice(0,4)+'XXXXXXXX'+v.slice(-4), D.cname = 'Esi Ampofo', 'ct_name') : { err: 'Card number must be 16 digits.' } }),
-  ct_name: () => ({ text: `Card Top Up\nCard Holder: ${D.cname}\nCard: ${D.card}\n\n1. Confirm\n2. Cancel`, choices: { '1':'ct_amt', '2':'cancelled' } }),
+  ct_name: () => ({ text: `Card Top Up\nCard Holder: ${D.cname}\nCard: ${D.card}\n\n1. Confirm\n2. Decline`, choices: { '1':'ct_amt', '2':'cancelled' } }),
   ct_amt: () => ({ text: 'Card Top Up\nEnter Amount:',
     input: v => isAmt(v) ? (D.amt = +v, toSrc('Card Top Up','ct_sum')) : { err: 'Enter a valid amount, e.g. 200.' } }),
   ct_sum: () => confirmScr('Card Top Up', [`From: ${D.src}`, `To: ${D.card}`, `Name: ${D.cname}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
     () => `Card ${D.card} topped up with ${money(D.amt)}. Acct ${D.src} debited. Ref: ${ref()}`),
 
-  /* Code Retrieval */
-  otp_pin: () => ({ text: 'Code Retrieval\nEnter PIN to View OTP:', secret: true,
+  /* OTP Retrieval */
+  otp_pin: () => ({ text: 'OTP Retrieval\nEnter PIN to View OTP:', secret: true,
     input: pinInput('otp_pin', () => { D.otp = String(Math.floor(100000 + Math.random()*900000)); return 'otp_show'; }) }),
   otp_show: () => ({ text: `Your OTP is ${D.otp}\nValid for 5 minutes. Never share your OTP with anyone, including GCB staff.\n\n0. Exit`,
     choices: { '0': END_THANKS } }),
-  otp_unreg: () => ({ text: 'Code Retrieval\nYou are not registered for GCB Mobile Banking.\n\n1. Register\n0. Exit',
+  otp_unreg: () => ({ text: 'OTP Retrieval\nYou are not registered for GCB Mobile Banking.\n\n1. Register\n0. Exit',
     choices: { '1':'reg_card', '0': END_THANKS } }),
 
   /* Help */
-  help: () => ({ text: 'Help\n1. Change PIN\n2. Reset PIN\n3. Contact Us\n0. Back',
-    choices: { '1': () => registered ? 'cp_old' : 'help_unreg', '2': () => registered ? 'rp_card' : 'help_unreg', '3':'contact', '0':'BACK' } }),
-  help_unreg: () => ({ text: 'You are not registered for GCB Mobile Banking.\n\n1. Register\n0. Back', choices: { '1':'reg_card', '0':'BACK' } }),
+  help: () => ({ text: 'Need Help with GCB Digital?\nReach our customer support via:\n\nEmail: customerservice@gcb.com.gh\nToll free: 0800 422 422\nWhatsApp: 0202 422 422\n\n0. Back', choices: { '0':'BACK' } }),
+
+  /* Salary Advance */
+  sa: () => ({ text: 'Salary Advance\n1. Apply\n2. View / Repay\n0. Back', choices: { '1':'sa_terms', '2':'sa_view', '0':'BACK' } }),
+  sa_terms: () => ({ text: 'Ts & Cs\nSalary advance up to 80% (Max GHS 20,000) for 30 days. Auto-repaid. Fees apply. www.gcbbank.com.gh\n\n1. Accept\n2. Decline',
+    choices: { '1':'sa_amt', '2':'END:Salary advance application cancelled.' } }),
+  sa_amt: () => ({ text: 'Salary Advance\nEnter Amount:\n(Min: 100.00 and Max: 1,400.00)',
+    input: v => isAmt(v) && +v >= 100 && +v <= 1400 ? (D.amt = +v, 'sa_sum') : { err: 'Enter an amount between 100.00 and 1,400.00.' } }),
+  sa_sum: () => { const q = saQuote(D.amt);
+    return { text: `Summary\nTo: ${SAL_ACCT}\nAmount: ${q.amt}\nPro Fee: ${q.fee}\nYou get: ${q.get}\nRepay: ${q.repay}\n\n1. Confirm\n2. Decline`,
+      choices: { '1': () => { const r = ref(); LOANS.push({ amt: D.amt, repay: +q.repay, due: dueDate(), ref: r });
+                 setTimeout(() => sms(`Salary advance of GHS ${q.amt} approved. GHS ${q.get} credited to ${SAL_ACCT}. Repay GHS ${q.repay} by ${dueDate()}. Ref: ${r}`), 2600); return 'done'; },
+                 '2':'cancelled' } }; },
+  sa_view: () => LOANS.length
+    ? { text: `Salary Advance\nActive Loans:\n${LOANS.map((l,i) => `${i+1}) GHS ${l.amt.toFixed(2)} - Repay GHS ${l.repay.toFixed(2)} by ${l.due}`).join('\n')}\n\n1. Repay Loan\n0. Back`,
+        choices: { '1': () => { if (LOANS.length === 1){ D.loan = 0; return 'sa_repay'; } return 'sa_pick'; }, '0':'BACK' } }
+    : { text: 'Salary Advance\nYou have no active salary advance.\n\n0. Back', choices: { '0':'BACK' } },
+  sa_pick: () => ({ text: `Repay Loan\nSelect Loan:\n${list(LOANS, l => `GHS ${l.repay.toFixed(2)} due ${l.due}`)}\n0. Back`,
+    choices: { ...pick(LOANS, (l,i) => D.loan = i, 'sa_repay'), '0':'BACK' } }),
+  sa_repay: () => { const l = LOANS[D.loan];
+    return { text: `Repay Loan\nFrom: ${SAL_ACCT}\nAmount: GHS ${l.repay.toFixed(2)}\nDue: ${l.due}\n\n1. Confirm\n2. Decline`,
+      choices: { '1': () => { const amt = l.repay; LOANS.splice(D.loan, 1); setTimeout(() => sms(`Salary advance repayment of GHS ${amt.toFixed(2)} received. Thank you. Ref: ${ref()}`), 2600); return 'done'; }, '2':'cancelled' } }; },
+
+  /* My Account */
+  acc: () => ({ text: 'My Account\n1. Check Balance\n2. Mini Statement\n3. Add Account\n4. Remove Account\n5. Change PIN\n0. Back',
+    choices: { '1':'bal_src', '2':'ms_src', '3':'add_acct', '4': () => ACCTS.length > 1 ? 'rm_pick' : 'rm_last', '5':'cp_old', '0':'BACK' } }),
+  bal_src: () => ({ text: `Check Balance\nSelect Account:\n${list(ACCTS)}\n0. Back`,
+    choices: { ...pick(ACCTS, (x,i) => D.acc = i, 'bal'), '0':'BACK' } }),
+  bal: () => { const b = BAL[D.acc] || [1250.00, 1250.00];
+    return { text: `Account Balance\nAccount: ${ACCTS[D.acc]}\nAvailable: GHS ${fmt(b[0])}\nLedger: GHS ${fmt(b[1])}\n\n0. Back`, choices: { '0':'BACK' } }; },
+  ms_src: () => ({ text: `Mini Statement\nSelect Account:\n${list(ACCTS)}\n0. Back`,
+    choices: { ...pick(ACCTS, (x,i) => { D.acc = i; D.msPage = 1; }, 'ms'), '0':'BACK' } }),
+  ms: () => { const p2 = D.msPage === 2, rows = p2 ? STMT.slice(6) : STMT.slice(0, 6);
+    const ch = { '0': () => { if (p2) { D.msPage = 1; return 'SAME'; } return 'BACK'; } };
+    if (!p2) ch['1'] = () => { D.msPage = 2; return 'SAME'; };
+    return { text: `Mini Statement ${p2 ? '(2/2)' : '(1/2)'}\n${rows.join('\n')}\n\n${p2 ? '' : '1. More\n'}0. Back`, choices: ch }; },
+  add_acct: () => ({ text: 'Add Account\nEnter account number:',
+    input: v => /^\d{13}$/.test(v) ? (D.newAcct = mask(v), 'add_confirm') : { err: 'Account number must be 13 digits.' } }),
+  add_confirm: () => ({ text: `Confirm Account Details\nName: ${NAME}\nAccount: ${D.newAcct}\n\n1. Confirm\n2. Decline`,
+    choices: { '1': () => ACCTS.includes(D.newAcct) ? 'add_dup' : (ACCTS.push(D.newAcct), BAL.push([860.40, 860.40]), 'add_done'), '2':'cancelled' } }),
+  add_done: () => ({ text: `Account ${D.newAcct} added successfully. You can now use it for transactions.\n\n0. Back`, choices: { '0': () => (stack = ['landing','menu','acc'], 'SAME_ACC') } }),
+  add_dup: () => ({ text: `Account ${D.newAcct} is already linked to your profile.\n\n0. Back`, choices: { '0': () => (stack = ['landing','menu','acc'], 'SAME_ACC') } }),
+  rm_pick: () => ({ text: `Remove Account\nSelect account to remove:\n${list(ACCTS)}\n0. Back`,
+    choices: { ...pick(ACCTS, (x,i) => { D.rm = i; }, 'rm_confirm'), '0':'BACK' } }),
+  rm_confirm: () => ({ text: `Remove Account\nName: ${NAME}\nAccount: ${ACCTS[D.rm]}\n\nThis account will no longer be available on GCB Digital.\n\n1. Confirm\n2. Decline`,
+    choices: { '1': () => { D.removed = ACCTS[D.rm]; ACCTS.splice(D.rm, 1); BAL.splice(D.rm, 1); return 'rm_done'; }, '2':'cancelled' } }),
+  rm_done: () => ({ text: `Account ${D.removed} removed successfully.\n\n0. Back`, choices: { '0': () => (stack = ['landing','menu','acc'], 'SAME_ACC') } }),
+  rm_last: () => ({ text: `Remove Account\nYou cannot remove ${ACCTS[0]}. At least one account must stay linked to GCB Digital.\n\n0. Back`, choices: { '0':'BACK' } }),
   cp_old: () => ({ text: 'Change PIN\nEnter Current PIN:', secret: true, input: pinInput('cp_old', () => 'cp_new') }),
   cp_new: () => ({ text: 'Change PIN\nEnter New 4-digit PIN:', secret: true, input: newPin('cp_new2') }),
   cp_new2: () => ({ text: 'Change PIN\nConfirm New PIN:', secret: true,
-    input: confirmPin('cp_new', () => { pin = D.newPin; return 'END:Your PIN has been changed successfully.'; }) }),
-  rp_card: () => ({ text: 'Reset PIN\nEnter your Ghana Card Number:',
-    input: v => /^(GHA-?)?\d{9}-?\d$/i.test(v) ? 'rp_acct' : { err: 'Enter the 10 digits on your Ghana Card.' } }),
-  rp_acct: () => ({ text: 'Reset PIN\nEnter your GCB Account Number:',
-    input: v => /^\d{13}$/.test(v) ? 'rp_new' : { err: 'Account number must be 13 digits.' } }),
-  rp_new: () => ({ text: 'Reset PIN\nCreate New 4-digit PIN:', secret: true, input: newPin('rp_new2') }),
-  rp_new2: () => ({ text: 'Reset PIN\nConfirm New PIN:', secret: true,
-    input: confirmPin('rp_new', () => { pin = D.newPin; pinTries = 0; return 'END:Your PIN has been reset. Dial *422# to continue banking.'; }) }),
-  contact: () => ({ text: 'Contact Us\nVisit any GCB branch, or go to www.gcbbank.com.gh for our Contact Centre lines.\n\n0. Back', choices: { '0':'BACK' } }),
+    input: confirmPin('cp_new', () => { pin = D.newPin; return 'cp_done'; }) }),
+  cp_done: () => ({ text: 'PIN changed successfully.\n\n0. Back', choices: { '0': () => (stack = ['landing','menu','acc'], 'SAME_ACC') } }),
 
   /* Outcomes */
   done: () => ({ text: 'Your request is being processed and you will be updated shortly.' + ANOTHER, choices: { '1':'menu', '2':END_THANKS } }),
@@ -626,6 +671,7 @@ function nav(t){
   if (typeof t === 'function') t = t();
   if (!t) return;
   if (t === 'SAME') return transition(cur);
+  if (t === 'SAME_ACC') return transition('acc');
   if (t === 'BACK'){ if (stack.length > 1) stack.pop(); return transition(stack[stack.length-1]); }
   if (t.startsWith('END:')) return transition(null, null, t.slice(4));
   if (t === 'landing') stack = ['landing'];
@@ -806,8 +852,9 @@ const JUMPS = [
   ['Pay Bills','pb',true],
   ['Mobile Money','mm',true],
   ['GHQR Merchant Pay','qr',true],
-  ['Card Top Up','ct',true],
-  ['Code Retrieval','otp_pin',true,['landing','otp_pin']],
+  ['Salary Advance','sa',true],
+  ['My Account','acc',true],
+  ['OTP Retrieval','otp_pin',true,['landing','otp_pin']],
   ['Help','help',null,['landing','help']]
 ];
 JUMPS.forEach(([label, id, reg, st]) => {
@@ -841,7 +888,7 @@ function fpDraw(){
     fpBody.innerHTML = '<div class="fp-load">Sending request<div class="pb"><i></i></div></div>';
     soft('', '', 'Cancel');
   } else if (m === 'view' || m === 'end'){
-    fpBody.innerHTML = `<div class="fp-scroll" id="fpScroll">${fp.err ? `<span class="err">${esc(fp.err)}</span>` : ''}${esc(fp.text)}</div><div class="fp-bar" id="fpBar" hidden><i></i></div>`;
+    fpBody.innerHTML = `<div class="fp-scroll" id="fpScroll">${(() => { const [h, ...rest] = fp.text.split('\n'); return esc(h) + (fp.err ? `<span class="err">${esc(fp.err)}</span>` : (rest.length ? '\n' : '')) + esc(rest.join('\n')); })()}</div><div class="fp-bar" id="fpBar" hidden><i></i></div>`;
     const sc = $('fpScroll'); sc.onscroll = fpBarDraw; fpBarDraw();
     if (m === 'view') soft('Reply', sc.scrollHeight > sc.clientHeight + 2 ? '▼' : '', 'Exit');
     else soft('', 'OK', 'Exit');
