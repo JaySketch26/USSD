@@ -447,10 +447,17 @@ const SC = {
     input: v => /^(GHA-?)?\d{9}-?\d$/i.test(v) ? (D.gcard = v, 'reg_acct') : { err: 'Enter your Ghana Card number, e.g. GHA7234567890.' } }),
   reg_acct: () => ({ text: 'Register\nEnter your GCB account number:',
     input: v => /^\d{13}$/.test(v) ? (D.acct = v, 'reg_confirm') : { err: 'Account number must be 13 digits.' } }),
+<<<<<<< HEAD
   reg_confirm: () => ({ text: `Confirm Your Details\nName: ${NAME}\nAccount: ${mask(D.acct||'')}\n\n1. Confirm\n2. Decline`,
     choices: { '1': 'reg_pin', '2': 'END:Registration cancelled.' } }),
   reg_pin: () => ({ text: 'Create your 4-digit PIN:', secret: true, input: newPin('reg_pin2') }),
   reg_pin2: () => ({ text: 'Re-enter your PIN:', secret: true, input: confirmPin('reg_pin', () => 'reg_terms') }),
+=======
+  reg_confirm: () => ({ text: `Confirm Your Details\nName: ${NAME}\nAcct: ${mask(D.acct||'')}\n\n1. Continue\n\n0. Cancel`,
+    choices: { '1': 'reg_pin', '0': 'END:Registration cancelled.' } }),
+  reg_pin: () => ({ text: 'Create Your 4-digit PIN:', secret: true, input: newPin('reg_pin2') }),
+  reg_pin2: () => ({ text: 'Confirm PIN:', secret: true, input: confirmPin('reg_pin', () => 'reg_terms') }),
+>>>>>>> f4f1237dbb184912920551e714cf6776c95a11de
   reg_terms: () => ({ text: 'Almost Done\nAccept Electronic Banking Terms & Conditions?\n(View at https://www.gcbbank.com.gh/electronic-terms)\n\n1. Accept\n2. Decline',
     choices: { '1': () => { registered = true; pin = D.newPin; syncSeg(); setTimeout(() => sms(`Welcome to GCB Mobile Banking, Justice. Dial *422# anytime to bank on the go. Never share your PIN.`), 2600); return 'reg_done'; },
       '2': 'END:Registration not completed. You need to accept the Terms and Conditions to use GCB Mobile Banking.' } }),
@@ -458,8 +465,13 @@ const SC = {
 
   /* Sign-in + main menu */
   login: () => ({ text: 'GCB Mobile Banking\nEnter your 4-digit PIN:', secret: true, input: pinInput('login', () => 'menu') }),
+<<<<<<< HEAD
   menu: () => ({ text: 'GCB Mobile Banking\n1. Mobile Money\n2. Funds Transfer\n3. Airtime & Bundles\n4. Pay Bill\n5. GHQR Merchant Pay\n6. Salary Advance\n7. My Account\n0. Exit',
     choices: { '1':'mm','2':'ft','3':'ab','4':'pb','5':'qr','6':'sa','7':'acc','0':END_THANKS } }),
+=======
+  menu: () => ({ text: 'GCB Mobile Banking\n1. Funds Transfer\n2. Mobile Money\n3. Airtime & Bundles\n4. Pay Bill\n5. GHQR Merchant Pay\n6. Card Top Up\n0. Exit',
+    choices: { '1':'ft','2':'mm','3':'ab','4':'pb','5':'qr','6':'ct','0':END_THANKS } }),
+>>>>>>> f4f1237dbb184912920551e714cf6776c95a11de
 
   /* Airtime & Bundles */
   ab: () => ({ text: 'Airtime & Bundles\n1. Airtime\n2. Internet Bundle\n3. Broadband\n0. Back', choices: { '1':'air','2':'bun','3':'bb','0':'BACK' } }),
@@ -852,8 +864,12 @@ const JUMPS = [
   ['Pay Bills','pb',true],
   ['Mobile Money','mm',true],
   ['GHQR Merchant Pay','qr',true],
+<<<<<<< HEAD
   ['Salary Advance','sa',true],
   ['My Account','acc',true],
+=======
+  ['Card Top Up','ct',true],
+>>>>>>> f4f1237dbb184912920551e714cf6776c95a11de
   ['OTP Retrieval','otp_pin',true,['landing','otp_pin']],
   ['Help','help',null,['landing','help']]
 ];
