@@ -504,7 +504,7 @@ const END_THANKS = 'END:Thank you for banking with GCB.';
 
 function confirmScr(title, lines, onOk, next = 'done'){
   return { text: `${title}\n${lines.join('\n')}\n\n1. Confirm\n2. Decline`,
-    choices: { '1': () => { if (onOk) setTimeout(() => sms(onOk()), 2600); return next; }, '2': 'cancelled' } };
+    choices: { '1': () => { if (onOk){ const m = onOk(); setTimeout(() => sms(m), 2600); } return next; }, '2': 'cancelled' } };
 }
 function pinInput(label, onOk){
   return v => {
@@ -636,9 +636,9 @@ const SC = {
   pb_name: () => ({ text: `${D.biller.n}\nName: ${D.biller.name}\n${D.biller.short}: ${D.ref}\n${D.biller.extra}\n\n1. Confirm\n2. Decline`,
     choices: { '1':'pb_amt', '2':'cancelled' } }),
   pb_amt: () => ({ text: `${D.biller.n}\nEnter Amount:`,
-    input: v => isAmt(v) ? (D.amt = +v, toNarr(D.biller.n, 'pb_sum'), toSrc(D.biller.n, 'narr')) : { err: 'Enter a valid amount, e.g. 100.' } }),
+    input: v => isAmt(v) ? (D.amt = +v, D.narr = '', toSrc(D.biller.n, 'pb_sum')) : { err: 'Enter a valid amount, e.g. 100.' } }),
   pb_sum: () => confirmScr(D.biller.n,
-    [`From: ${D.src}`, `${D.biller.short}: ${D.ref}`, `Name: ${D.biller.name}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0', ...NARR()],
+    [`From: ${D.src}`, `${D.biller.short}: ${D.ref}`, `Name: ${D.biller.name}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
     () => D.biller.n === 'ECG Prepaid'
       ? `ECG payment of ${money(D.amt)} for meter ${D.ref} successful. Token: 4821-0937-5562-1180-7734. Ref: ${ref()}`
       : `${D.biller.n} payment of ${money(D.amt)} for ${D.ref} successful. Acct ${D.src} debited. Ref: ${ref()}`),
