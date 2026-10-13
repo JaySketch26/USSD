@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: phone on the left (sticky), device / customer switches and jump links on the right */
+/* Layout: phone centred on the page, device and customer dropdowns floating top-right */
 :root{
   --bg:#F2F3F4; --surface:#FFFFFF; --ink:#1E252C; --muted:#5D6873; --line:#DCE0E4;
   --gold:#F5A623; --gold-strong:#D4880D; --gold-ink:#7A4E00; --navy:#2B333C; --chip:#EEF0F2;
@@ -31,13 +31,23 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14p
 button{font:inherit;cursor:pointer}
 button:focus-visible,input:focus-visible{outline:2px solid var(--gold-strong);outline-offset:2px}
 
-.wrap{max-width:1160px;margin:0 auto;padding-block:28px 48px;padding-inline:clamp(16px,3vw,32px);
-  display:grid;grid-template-columns:auto minmax(0,1fr);gap:clamp(24px,4vw,56px);align-items:start}
-@media (max-width:900px){.wrap{grid-template-columns:minmax(0,1fr)}}
+.wrap{min-height:100vh;margin:0 auto;padding-block:84px 32px;padding-inline:16px;display:flex;align-items:center;justify-content:center}
+/* Floating controls */
+.ctrls{position:fixed;top:calc(env(safe-area-inset-top, 0px) + 16px);right:16px;z-index:200;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.ctl{position:relative;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;
+  padding:5px 8px 5px 14px;box-shadow:0 8px 24px -8px rgba(20,28,36,.18)}
+.ctl label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ctl select{appearance:none;-webkit-appearance:none;border:0;background:var(--chip);color:var(--ink);font:500 13px var(--sans);
+  padding:7px 30px 7px 12px;border-radius:999px;cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+.ctl select:focus-visible{outline:2px solid var(--gold-strong);outline-offset:2px}
+@media (max-width:600px){.ctrls{left:16px;right:16px;justify-content:center;flex-wrap:nowrap;gap:8px}.ctl{padding:4px;gap:0;min-width:0}
+  .ctl label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .ctl select{max-width:100%}}
 
 /* ---------- Phone ---------- */
-.stage-col{position:sticky;top:20px;display:flex;justify-content:center}
-@media (max-width:900px){.stage-col{position:static}}
+.stage-col{display:flex;justify-content:center}
 .stage{position:relative}
 .device{position:absolute;top:0;left:0;width:421px;height:880px;transform-origin:top left;
   border-radius:68px;padding:14px;background:linear-gradient(145deg,#3a3d42,#17181b 40%,#2a2c30);
@@ -296,6 +306,12 @@ h1 code{font-family:var(--mono);font-weight:500;background:var(--navy);color:#F9
 </style>
 </head>
 <body>
+<div class="ctrls" role="group" aria-label="Prototype settings">
+  <div class="ctl"><label for="selDev">Device</label>
+    <select id="selDev"><option value="ios">iPhone</option><option value="and">Android</option><option value="fp">Keypad phone</option></select></div>
+  <div class="ctl"><label for="selCust">Customer</label>
+    <select id="selCust"><option value="new">New customer</option><option value="reg">Registered</option></select></div>
+</div>
 <main class="wrap">
   <div class="stage-col">
     <div class="stage" id="stage">
@@ -414,34 +430,6 @@ h1 code{font-family:var(--mono);font-weight:500;background:var(--navy);color:#F9
     </div>
   </div>
 
-  <section class="panel">
-    <div>
-      <div class="eyebrow">GCB Mobile Banking · USSD</div>
-      <h1>Dial <code>*422#</code></h1>
-    </div>
-
-    <div class="card">
-      <h2>Device</h2>
-      <div class="seg gap-b" role="group" aria-label="Device">
-        <button type="button" id="devIos" aria-pressed="true">iPhone</button>
-        <button type="button" id="devAnd" aria-pressed="false">Android</button>
-        <button type="button" id="devFp" aria-pressed="false">Keypad phone</button>
-      </div>
-      <h2>Customer</h2>
-      <div class="row">
-        <div class="seg" role="group" aria-label="Customer state">
-          <button type="button" id="segNew" aria-pressed="true">New customer</button>
-          <button type="button" id="segReg" aria-pressed="false">Registered</button>
-        </div>
-        <div class="actions">
-          <button type="button" class="btn primary" id="autoDial">Dial *422#</button>
-          <button type="button" class="btn" id="restart">Reset</button>
-        </div>
-      </div>
-      <h2 class="gap-t">Jump to screen</h2>
-      <div class="jumps" id="jumps"></div>
-    </div>
-  </section>
 </main>
 
 <script>
@@ -923,7 +911,7 @@ function call(){
 /* ---------- Keyboard ---------- */
 ['inp','aInp'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); e.stopPropagation(); send(); } }));
 document.addEventListener('keydown', e => {
-  if (e.target.closest && e.target.closest('.panel')) return;
+  if (e.target.closest && e.target.closest('.ctrls')) return;
   if (active){
     if (e.key === 'Escape') closeSession('Session cancelled');
     else if (e.key === 'Enter' && !curScreen && !busy) closeSession('Session ended');
@@ -942,41 +930,9 @@ function flash(k){ const b = (dev === 'and' ? $('aKeypad') : keypad).querySelect
 function clearLog(){}
 function logNet(){} function logUser(){} function logSys(){} function meta(){}
 
-function syncSeg(){ $('segNew').setAttribute('aria-pressed', String(!registered)); $('segReg').setAttribute('aria-pressed', String(registered)); }
+function syncSeg(){ $('selCust').value = registered ? 'reg' : 'new'; }
 function resetPhone(){ if (active) closeSession('Phone reset'); dialed = ''; drawDial(); }
-$('segNew').onclick = () => { registered = false; pin = null; syncSeg(); resetPhone(); };
-$('segReg').onclick = () => { registered = true; syncSeg(); resetPhone(); };
-$('restart').onclick = resetPhone;
-$('autoDial').onclick = () => {
-  resetPhone(); let i = 0; const s = '*422#';
-  const t = setInterval(() => { if (i < s.length){ dial(s[i]); flash(s[i]); i++; } else { clearInterval(t); setTimeout(call, 250); } }, 160);
-};
-
-const JUMPS = [
-  ['Registration','reg_card',false,['landing','reg_card']],
-  ['Main menu','menu',true],
-  ['Mobile Money','mm',true],
-  ['Funds Transfer','ft',true],
-  ['Airtime','air',true,['landing','menu','ab','air']],
-  ['Internet Bundle','bun',true,['landing','menu','ab','bun']],
-  ['Pay Bill','pb',true],
-  ['GHQR Merchant Pay','qr',true],
-  ['Salary Advance','sa',true],
-  ['My Account','acc',true],
-  ['OTP Retrieval','otp_pin',true,['landing','otp_pin']],
-  ['Help','help',null,['landing','help']]
-];
-JUMPS.forEach(([label, id, reg, st]) => {
-  const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = label;
-  b.onclick = () => {
-    if (reg !== null){ registered = reg; if (!reg) pin = null; syncSeg(); }
-    if (active) { showU(false); active = false; }
-    dialed = '*422#'; drawDial();
-    openSession(st ? st.slice() : (id === 'menu' ? ['landing','menu'] : ['landing','menu',id]));
-  };
-  $('jumps').appendChild(b);
-});
-
+$('selCust').onchange = e => { registered = e.target.value === 'reg'; if (!registered) pin = null; resetPhone(); };
 
 /* ---------- Keypad phone ---------- */
 let dev = 'ios';
@@ -1070,7 +1026,7 @@ function fpKey(k){
 $('fp').addEventListener('click', e => { const b = e.target.closest('[data-fk]'); if (b) fpKey(b.dataset.fk); });
 function fpFlash(k){ const b = $('fp').querySelector(`[data-fk="${CSS.escape(k)}"]`); if (!b) return; b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 140); }
 document.addEventListener('keydown', e => {
-  if (dev !== 'fp' || (e.target.closest && e.target.closest('.panel'))) return;
+  if (dev !== 'fp' || (e.target.closest && e.target.closest('.ctrls'))) return;
   const map = { Enter:'ok', Escape:'end', Backspace:'sr', ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right' };
   if (fp.mode === 'reply' && curScreen && curScreen.textInput && /^[a-zA-Z .,]$/.test(e.key)){ e.preventDefault(); e.stopImmediatePropagation(); if (fp.input.length < 30) fpSet({ input: fp.input + (curScreen.upper ? e.key.toUpperCase() : e.key) }); return; }
   const k = /^[0-9*#]$/.test(e.key) ? e.key : map[e.key];
@@ -1080,22 +1036,19 @@ document.addEventListener('keydown', e => {
 function setDev(d){
   resetPhone(); dev = d; bindDev(d);
   $('fp').hidden = d !== 'fp'; $('device').hidden = d !== 'ios'; $('adev').hidden = d !== 'and';
-  $('devIos').setAttribute('aria-pressed', String(d === 'ios')); $('devAnd').setAttribute('aria-pressed', String(d === 'and')); $('devFp').setAttribute('aria-pressed', String(d === 'fp'));
+  $('selDev').value = d;
   if (d === 'fp') fpSet({ mode:'idle', input:'' });
   fit();
 }
-$('devIos').onclick = () => setDev('ios');
-$('devFp').onclick = () => setDev('fp');
-$('devAnd').onclick = () => setDev('and');
+$('selDev').onchange = e => setDev(e.target.value);
 
 /* ---------- Scale phone to viewport ---------- */
 const stage = $('stage'), device = $('device');
 function fit(){
   const el = dev === 'fp' ? $('fp') : dev === 'and' ? $('adev') : device;
   const W = dev === 'fp' ? 296 : dev === 'and' ? 404 : 421, H = dev === 'fp' ? 700 : dev === 'and' ? 860 : 880;
-  const narrow = innerWidth <= 900;
-  const colW = narrow ? (document.querySelector('.wrap').clientWidth - 32) : W;
-  const availH = narrow ? H : innerHeight - 40;
+  const colW = Math.min(W, document.querySelector('.wrap').clientWidth - 32);
+  const availH = innerHeight - 116;
   const s = Math.max(.5, Math.min(1, availH/H, colW/W));
   el.style.transform = `scale(${s})`;
   stage.style.width = W*s + 'px'; stage.style.height = H*s + 'px';
