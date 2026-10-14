@@ -667,7 +667,7 @@ const SC = {
   /* Code Retrieval */
   otp_pin: () => ({ text: 'Code Retrieval\nEnter PIN to View Code:', secret: true,
     input: pinInput('otp_pin', () => { D.otp = String(Math.floor(100000 + Math.random()*900000)); return 'otp_show'; }) }),
-  otp_show: () => ({ text: `Your OTP is ${D.otp}\nValid for 5 minutes. Never share your OTP with anyone, including GCB staff.\n\n0. Exit`,
+  otp_show: () => ({ text: `Your Code is ${D.otp}\nValid for 5 minutes. Never share your code with anyone, including GCB staff.\n\n0. Exit`,
     choices: { '0': END_THANKS } }),
   otp_unreg: () => ({ text: 'Code Retrieval\nYou are not registered for GCB Mobile Banking.\n\n1. Register\n0. Exit',
     choices: { '1':'reg_card', '0': END_THANKS } }),
