@@ -310,7 +310,7 @@ h1 code{font-family:var(--mono);font-weight:500;background:var(--navy);color:#F9
   <div class="ctl"><label for="selDev">Device</label>
     <select id="selDev"><option value="ios">iPhone</option><option value="and">Android</option><option value="fp">Keypad phone</option></select></div>
   <div class="ctl"><label for="selCust">Customer</label>
-    <select id="selCust"><option value="new">New Customer</option><option value="reg">Registered</option></select></div>
+    <select id="selCust"><option value="new">New customer</option><option value="reg">Registered</option></select></div>
 </div>
 <main class="wrap">
   <div class="stage-col">
@@ -461,14 +461,18 @@ const BILLERS = [
   {n:'GOtv',ref:'IUC Number',short:'IUC',name:'Efua Mensah',extra:'Package: GOtv Max'},
   {n:'StarTimes',ref:'Smartcard Number',short:'Card',name:'Kojo Antwi',extra:'Package: Classic'}
 ];
-const BANKS1 = ['Absa Bank','CalBank','Ecobank','Fidelity Bank','Stanbic Bank'];
-const BANKS2 = ['Access Bank','Republic Bank','Societe Generale','Zenith Bank'];
-const MERCHANTS = [['Melcom - Accra Mall','104882'],['Shoprite - Junction Mall','220931'],['Papaye - Osu','318774']];
+const BANK_RANGES = [
+  ['A - E', ['Absa Bank','Access Bank','ADB','Bank of Africa','CalBank','CBG','Ecobank']],
+  ['F - J', ['FBNBank','Fidelity Bank','First Atlantic Bank','First National Bank','GTBank']],
+  ['K - O', ['NIB','OmniBSIC Bank']],
+  ['P - T', ['Prudential Bank','Republic Bank','Societe Generale','Stanbic Bank','Standard Chartered']],
+  ['U - Z', ['UBA','UMB','Zenith Bank']]
+];
 
 const SAL_ACCT = '******7878';
 const LOANS = [{ amt: 500, repay: 514, due: '28 Oct 2026', ref: 'GCB5512093344' }];
-const BAL = [[4250.75, 4300.75], [1180.20, 1180.20]];
-const STMT = ['10/10 Airtime -5.00','09/10 MoMo In +200.00','08/10 ECG Prepaid -100.00','07/10 Transfer -350.00','05/10 Salary +4,800.00','04/10 GHQR Pay -75.00','03/10 Bundle -10.00','02/10 Card Top Up -200.00','01/10 MoMo Out -50.00','30/09 Charges -2.50'];
+const BAL = [4250.75, 1180.20];
+const STMT = ['10/10 Airtime -5.00','09/10 MoMo In +200.00','08/10 ECG Prepaid -100.00','07/10 Transfer -350.00','05/10 Salary +4,800.00'];
 const fmt = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const saQuote = a => ({ amt: fmt(a), fee: (a*0.072).toFixed(2), get: (a - a*0.072).toFixed(2), repay: (a*1.028).toFixed(2) });
 const dueDate = () => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); };
@@ -484,14 +488,14 @@ const weak = v => /^(\d)\1{3}$/.test(v) || '0123456789'.includes(v) || '98765432
 const ref = () => 'GCB' + Math.floor(1e9 + Math.random()*9e9);
 const list = (arr, f = x => x) => arr.map((x,i) => `${i+1}. ${f(x)}`).join('\n');
 const pick = (arr, set, next) => Object.fromEntries(arr.map((x,i) => [String(i+1), () => { set(x,i); return next; }]));
-const toNarr = (title, next) => { D.narrTitle = title; D.narrNext = next; D.narr = ''; return 'narr'; };
+const toNarr = next => { D.narrNext = next; D.narr = ''; return 'narr'; };
 const NARR = () => D.narr ? [`Narr: ${D.narr}`] : [];
-const toSrc = (title, next) => { D.srcTitle = title; D.srcNext = next; return 'src'; };
+const toSrc = next => { D.srcNext = next; return 'src'; };
 const ANOTHER = '\nDo you want to perform another transaction?\n1. Yes\n2. No';
 const END_THANKS = 'END:Thank you for banking with GCB.';
 
-function confirmScr(title, lines, onOk, next = 'done'){
-  return { text: `${title}\n${lines.join('\n')}\n\n1. Confirm\n2. Decline`,
+function confirmScr(lines, onOk, next = 'done'){
+  return { text: `${lines.join('\n')}\n\n1. Confirm\n2. Decline`,
     choices: { '1': () => { if (onOk){ const m = onOk(); setTimeout(() => sms(m), 2600); } return next; }, '2': 'cancelled' } };
 }
 function pinInput(label, onOk){
@@ -519,213 +523,212 @@ function confirmPin(back, done){
 /* ---------- Screens ---------- */
 const SC = {
   landing: () => ({ text: 'Welcome to GCB Digital\n1. GCB Mobile Banking\n2. Code Retrieval\n3. Help\n\n0. Exit',
-    choices: { '1': () => registered ? 'login' : 'reg_card', '2': () => registered ? 'otp_pin' : 'otp_unreg', '3': 'help', '0': 'END:Thank you for choosing GCB.' } }),
+    choices: { '1': () => registered ? 'login' : 'reg_card', '2': () => { D.code = String(Math.floor(100000 + Math.random()*900000)); return 'code'; }, '3': 'help', '0': 'END:Thank you for choosing GCB.' } }),
 
-  /* Registration */
-  reg_card: () => ({ text: 'Register\nEnter your Ghana Card number:\n(e.g. GHAXXXXXXXXXX)', textInput: true, upper: true,
+  /* Code Retrieval (open to everyone) */
+  code: () => ({ text: `Your code is\n----------------------------------------------\n ${D.code}\n----------------------------------------------\nValid for 5 minutes. Do not share this code with anyone, including GCB staff.\n\n0. Exit`,
+    choices: { '0': END_THANKS } }),
+
+  /* Registration (0 exits at every step) */
+  reg_card: () => ({ text: 'Enter your Ghana Card number:\n(e.g. GHAXXXXXXXXXX)', textInput: true, upper: true,
     input: v => /^(GHA-?)?\d{9}-?\d$/i.test(v) ? (D.gcard = v, 'reg_acct') : { err: 'Enter your Ghana Card number, e.g. GHA7234567890.' } }),
-  reg_acct: () => ({ text: 'Register\nEnter your GCB account number:',
+  reg_acct: () => ({ text: 'Enter your GCB account number:',
     input: v => /^\d{13}$/.test(v) ? (D.acct = v, 'reg_confirm') : { err: 'Account number must be 13 digits.' } }),
-  reg_confirm: () => ({ text: `Confirm Your Details\nName: ${NAME}\nAccount: ${mask(D.acct||'')}\n\n1. Confirm\n2. Decline`,
+  reg_confirm: () => ({ text: `Name: ${NAME}\nAccount: ${mask(D.acct||'')}\n\n1. Confirm\n2. Decline`,
     choices: { '1': 'reg_pin', '2': 'END:Registration cancelled.' } }),
   reg_pin: () => ({ text: 'Create your 4-digit PIN:', secret: true, input: newPin('reg_pin2') }),
   reg_pin2: () => ({ text: 'Re-enter your PIN:', secret: true, input: confirmPin('reg_pin', () => 'reg_terms') }),
   reg_terms: () => ({ text: 'Almost Done\nAccept Electronic Banking Terms & Conditions?\n(View at https://www.gcbbank.com.gh/electronic-terms)\n\n1. Accept\n2. Decline',
     choices: { '1': () => { registered = true; pin = D.newPin; syncSeg(); setTimeout(() => sms(`Welcome to GCB Mobile Banking, Justice. Dial *422# anytime to bank on the go. Never share your PIN.`), 2600); return 'reg_done'; },
       '2': 'END:Registration not completed. You need to accept the Terms and Conditions to use GCB Mobile Banking.' } }),
-  reg_done: () => ({ text: 'Registration Successful. Enjoy a seamless banking experience\n\n1. Start\n2. Exit', choices: { '1': 'menu', '2': END_THANKS } }),
+  reg_done: () => ({ text: 'Registration Successful. Enjoy a seamless banking experience\n\n1. Start\n0. Exit', choices: { '1': 'menu', '0': END_THANKS } }),
 
   /* Sign-in + main menu */
-  login: () => ({ text: 'GCB Mobile Banking\nEnter your 4-digit PIN:', secret: true, input: pinInput('login', () => 'menu') }),
-  menu: () => ({ text: 'GCB Mobile Banking\n1. Mobile Money\n2. Funds Transfer\n3. Airtime & Bundles\n4. Pay Bill\n5. GHQR Merchant Pay\n6. Salary Advance\n7. My Account\n0. Exit',
-    choices: { '1':'mm','2':'ft','3':'ab','4':'pb','5':'qr','6':'sa','7':'acc','0':END_THANKS } }),
+  login: () => ({ text: 'GCB Mobile\nEnter your 4-digit PIN:', secret: true, input: pinInput('login', () => 'menu') }),
+  menu: () => ({ text: 'GCB Mobile\n1. Mobile Money\n2. Transfers\n3. Airtime & Data\n4. GCB Pay (Bills, QR)\n5. Loans\n6. My Account\n0. Exit',
+    choices: { '1':'mm','2':'ft','3':'ab','4':'gp','5':'loans','6':'acc','0':END_THANKS } }),
 
-  /* Airtime & Bundles */
-  ab: () => ({ text: 'Airtime & Bundles\n1. Airtime\n2. Internet Bundle\n3. Broadband\n0. Back', choices: { '1':'air','2':'bun','3':'bb','0':'BACK' } }),
-  air: () => ({ text: 'Airtime\n1. Self\n2. Others\n0. Back',
-    choices: { '1': () => { D.mode='Self'; D.to='233'+MSISDN.slice(1); D.net='MTN'; return 'air_amt'; },
-               '2': () => { D.mode='Others'; return 'air_net'; }, '0':'BACK' } }),
-  air_net: () => ({ text: `Airtime (Others)\nSelect Beneficiary Network\n${list(NETS)}\n0. Back`,
+  /* ---- Mobile Money ---- */
+  mm: () => ({ text: 'Mobile Money\n1. Bank to Own Wallet\n2. Bank to Other Wallet\n3. Wallet to Bank\n0. Back',
+    choices: { '1': () => { D.mm = 'own'; D.wnum = MSISDN; D.wname = NAME; D.wnet = 'MTN MoMo'; D.src = ACCTS[0]; return 'mm_amt'; },
+               '2': () => { D.mm = 'other'; return 'mm_net'; },
+               '3': () => { D.mm = 'w2b'; D.wnet = 'MTN MoMo'; return 'mm_amt'; }, '0':'BACK' } }),
+  mm_net: () => ({ text: `Select Network:\n${list(WALLETS)}\n0. Back`,
+    choices: { ...pick(WALLETS, x => D.wnet = x, 'mm_num'), '0':'BACK' } }),
+  mm_num: () => ({ text: 'Enter Wallet Number:',
+    input: v => isPhone(v) ? (D.wnum = v, D.wname = 'Ama Serwaa Owusu', 'mm_name') : { err: 'Enter a 10-digit number starting with 0.' } }),
+  mm_name: () => ({ text: `Wallet Name: ${D.wname}\nNumber: ${D.wnum}\nNetwork: ${D.wnet}\n\n1. Confirm\n2. Decline`,
+    choices: { '1':'mm_amt', '2':'cancelled' } }),
+  mm_amt: () => ({ text: 'Enter Amount:',
+    input: v => !isAmt(v) ? { err: 'Enter a valid amount, e.g. 20.' }
+      : (D.amt = +v, D.mm === 'w2b' ? 'mm_dest' : D.mm === 'own' ? toNarr('mm_sum') : (toNarr('mm_sum'), toSrc('narr'))) }),
+  mm_dest: () => ({ text: `Select Destination Account:\n${list(ACCTS)}\n0. Back`,
+    choices: { ...pick(ACCTS, x => { D.dest = x; toNarr('mm_sum'); }, 'narr'), '0':'BACK' } }),
+  mm_sum: () => D.mm === 'w2b'
+    ? confirmScr([`From: ${D.wnet} ${MSISDN}`, `To: ${D.dest}`, `Name: ${NAME}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0', ...NARR()],
+        () => `Acct ${D.dest} credited ${money(D.amt)} from ${D.wnet} ${MSISDN}. Ref: ${ref()}`, 'done_w2b')
+    : confirmScr([`From: ${D.src}`, `To: ${D.wnet} ${D.wnum}`, `Name: ${D.wname}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0', ...NARR()],
+        () => `${money(D.amt)} sent to ${D.wnet} wallet ${D.wnum} (${D.wname}). Acct ${D.src} debited. Ref: ${ref()}`),
+
+  /* ---- Transfers ---- */
+  ft: () => ({ text: 'Transfers\n1. Own GCB Accounts\n2. Other GCB Accounts\n3. Other Banks\n0. Back',
+    choices: { '1': () => { D.ft = 'own'; return toSrc('ft_own_ben'); }, '2': () => { D.ft = 'gcb'; return toSrc('ft_gcb_acct'); },
+               '3': () => { D.ft = 'lb'; return toSrc('ft_lb_range'); }, '0':'BACK' } }),
+  src: () => ({ text: `Select Source Account:\n${list(ACCTS)}\n0. Back`,
+    choices: { ...pick(ACCTS, x => D.src = x, D.srcNext), '0':'BACK' } }),
+  ft_own_ben: () => { const o = ACCTS.filter(a => a !== D.src);
+    return o.length
+      ? { text: `Select Beneficiary Account:\n${list(o)}\n0. Back`, choices: { ...pick(o, x => { D.dest = x; D.name = NAME; }, 'ft_amt'), '0':'BACK' } }
+      : { text: 'You need at least two linked accounts to transfer between your own accounts.\n\n0. Back', choices: { '0':'BACK' } }; },
+  ft_gcb_acct: () => ({ text: 'Enter Beneficiary Account Number:',
+    input: v => /^\d{13}$/.test(v) ? (D.dest = mask(v), 'ft_gcb_name') : { err: 'Account number must be 13 digits.' } }),
+  ft_gcb_name: () => ({ text: `Beneficiary Name: Awula Tsotso Mills\nAccount: ${D.dest}\n\n1. Confirm\n2. Decline`,
+    choices: { '1': () => { D.name = 'Awula Tsotso Mills'; return 'ft_amt'; }, '2':'cancelled' } }),
+  ft_lb_range: () => ({ text: `Select Bank:\n${list(BANK_RANGES, r => r[0])}\n0. Back`,
+    choices: { ...pick(BANK_RANGES, r => D.range = r, 'ft_lb_bank'), '0':'BACK' } }),
+  ft_lb_bank: () => ({ text: `Select Bank:\n${list(D.range[1])}\n0. Back`,
+    choices: { ...pick(D.range[1], x => D.bank = x, 'ft_lb_acct'), '0':'BACK' } }),
+  ft_lb_acct: () => ({ text: 'Enter Beneficiary Account Number:',
+    input: v => /^\d{10,16}$/.test(v) ? (D.dest = mask(v), 'ft_lb_name') : { err: 'Enter a valid account number (10 to 16 digits).' } }),
+  ft_lb_name: () => ({ text: `Bank: ${D.bank}\nBeneficiary Name: Kofi Mensah Boateng\nAccount: ${D.dest}\n\n1. Confirm\n2. Decline`,
+    choices: { '1': () => { D.name = 'Kofi Mensah Boateng'; return 'ft_amt'; }, '2':'cancelled' } }),
+  ft_amt: () => ({ text: 'Enter Amount:',
+    input: v => isAmt(v) ? (D.amt = +v, toNarr('ft_sum')) : { err: 'Enter a valid amount, e.g. 50.' } }),
+  ft_sum: () => confirmScr(
+    [`From: ${D.src}`, `To: ${D.dest}`, ...(D.ft === 'lb' ? [`Bank: ${D.bank}`] : []), `Name: ${D.name}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0', ...NARR()],
+    () => `Acct ${D.src} debited ${money(D.amt)}. Transfer to ${D.name} (${D.dest}). Ref: ${ref()}`),
+
+  /* Shared narration step (mandatory) */
+  narr: () => ({ text: 'Enter Narration:', textInput: true,
+    input: v => v.length < 2 ? { err: 'Enter a narration for this transaction.' } : v.length > 30 ? { err: 'Narration can be up to 30 characters.' } : (D.narr = v, D.narrNext) }),
+
+  /* ---- Airtime & Data ---- */
+  ab: () => ({ text: 'Airtime & Data\n1. Airtime\n2. Internet Bundle\n3. Broadband\n0. Back', choices: { '1':'air','2':'bun','3':'bb','0':'BACK' } }),
+  air: () => ({ text: 'Select Option:\n1. Self\n2. Others\n0. Back',
+    choices: { '1': () => { D.mode = 'Self'; D.to = '233' + MSISDN.slice(1); D.net = 'MTN'; return 'air_amt'; },
+               '2': () => { D.mode = 'Others'; return 'air_net'; }, '0':'BACK' } }),
+  air_net: () => ({ text: `Select Network:\n${list(NETS)}\n0. Back`,
     choices: { ...pick(NETS, x => D.net = x, 'air_num'), '0':'BACK' } }),
-  air_num: () => ({ text: 'Airtime (Others)\nEnter Beneficiary Mobile Number:',
-    input: v => isPhone(v) ? (D.to = '233'+v.slice(1), 'air_amt') : { err: 'Enter a 10-digit number starting with 0.' } }),
-  air_amt: () => ({ text: `Airtime (${D.mode})\nEnter Amount:`,
+  air_num: () => ({ text: 'Enter Mobile Number:',
+    input: v => isPhone(v) ? (D.to = '233' + v.slice(1), 'air_amt') : { err: 'Enter a 10-digit number starting with 0.' } }),
+  air_amt: () => ({ text: 'Enter Amount:',
     input: v => isAmt(v) ? (D.amt = +v, 'air_sum') : { err: 'Enter a valid amount, e.g. 5.' } }),
-  air_sum: () => confirmScr(`Airtime (${D.mode})`,
-    [`From: ${CARD}`, `To: ${D.to}`, ...(D.mode==='Others'?[`Net: ${D.net}`]:[]), `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
+  air_sum: () => confirmScr(
+    [`From: ${CARD}`, `To: ${D.to}`, ...(D.mode === 'Others' ? [`Net: ${D.net}`] : []), `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
     () => `Airtime of ${money(D.amt)} sent to ${D.to}. Debited from ${CARD}. Ref: ${ref()}`),
 
-  bun: () => ({ text: 'Internet Bundle\n1. Self\n2. Others\n0. Back',
-    choices: { '1': () => { D.mode='Self'; D.to=MSISDN; D.net='MTN'; return 'bun_cat'; },
-               '2': () => { D.mode='Others'; return 'bun_net'; }, '0':'BACK' } }),
-  bun_cat: () => ({ text: `Internet Bundle (Self)\n${list(CATS)}\n0. Back`,
+  bun: () => ({ text: 'Select Option:\n1. Self\n2. Others\n0. Back',
+    choices: { '1': () => { D.mode = 'Self'; D.to = MSISDN; D.net = 'MTN'; return 'bun_cat'; },
+               '2': () => { D.mode = 'Others'; return 'bun_net'; }, '0':'BACK' } }),
+  bun_cat: () => ({ text: `Select Option:\n${list(CATS)}\n0. Back`,
     choices: { ...pick(CATS, x => { D.cat = x; D.page = 1; }, 'bun_list'), '0':'BACK' } }),
-  bun_net: () => ({ text: `Internet Bundle (Others)\n${list(NETS)}\n0. Back`,
+  bun_net: () => ({ text: `Select Network:\n${list(NETS)}\n0. Back`,
     choices: { ...pick(NETS, x => D.net = x, 'bun_num'), '0':'BACK' } }),
-  bun_num: () => ({ text: 'Internet Bundle (Others)\nEnter Beneficiary Mobile Number:',
-    input: v => isPhone(v) ? (D.to = v, D.cat = 'Flexi', D.page = 1, 'bun_list') : { err: 'Enter a 10-digit number starting with 0.' } }),
+  bun_num: () => ({ text: 'Enter Mobile Number:',
+    input: v => isPhone(v) ? (D.to = v, 'bun_cat') : { err: 'Enter a 10-digit number starting with 0.' } }),
   bun_list: () => {
     const more = D.cat === 'Flexi' && D.page === 1;
     const items = D.cat === 'Flexi' && D.page === 2 ? BUNDLES.FlexiMore : BUNDLES[D.cat];
     const ch = { ...pick(items, x => D.bdl = x, 'bun_sum'), '0': () => { if (D.page === 2) { D.page = 1; return 'SAME'; } return 'BACK'; } };
-    if (more) ch[String(items.length+1)] = () => { D.page = 2; return 'SAME'; };
-    return { text: `Internet Bundle (${D.mode})\n${list(items, b => `${b[0]} GHC${b[1]}`)}${more ? `\n${items.length+1}. More` : ''}\n0. Back`, choices: ch };
+    if (more) ch[String(items.length + 1)] = () => { D.page = 2; return 'SAME'; };
+    return { text: `Select Bundle:\n${list(items, b => `${b[0]} GHC${b[1]}`)}${more ? `\n${items.length + 1}. More` : ''}\n0. Back`, choices: ch };
   },
-  bun_sum: () => confirmScr(`Internet Bundle (${D.mode})`,
+  bun_sum: () => confirmScr(
     [`From: ${CARD}`, `Bdl: ${D.bdl[0]} GHC${D.bdl[1]}`, `To: ${D.to}`, `Net: ${D.net}`, 'Fee: GHC 0'],
     () => `${D.bdl[0]} bundle activated on ${D.to}. ${money(D.bdl[1])} debited from ${CARD}. Ref: ${ref()}`),
 
-  /* Broadband */
-  bb: () => ({ text: `Broadband\nSelect Provider\n${list(NETS)}\n0. Back`,
+  bb: () => ({ text: `Select Provider:\n${list(NETS)}\n0. Back`,
     choices: { ...pick(NETS, x => D.net = x, 'bb_num'), '0':'BACK' } }),
-  bb_num: () => ({ text: `Broadband (${D.net})\nEnter Broadband Number:`,
-    input: v => /^\d{9,12}$/.test(v) ? (D.to = v, 'bb_list') : { err: 'Enter the 9 to 12 digit number on your router or SIM.' } }),
-  bb_list: () => ({ text: `Broadband (${D.net})\nSelect Bundle\n${list(BB, b => `${b[0]} GHC${b[1]}`)}\n0. Back`,
+  bb_num: () => ({ text: 'Enter Broadband Number:',
+    input: v => /^\d{9,12}$/.test(v) ? (D.to = v, 'bb_name') : { err: 'Enter the 9 to 12 digit number on your router or SIM.' } }),
+  bb_name: () => ({ text: `Name: Kwesi Owusu\nNumber: ${D.to}\nNet: ${D.net}\n\n1. Confirm\n2. Decline`,
+    choices: { '1':'bb_list', '2':'cancelled' } }),
+  bb_list: () => ({ text: `Select Bundle:\n${list(BB, b => `${b[0]} GHC${b[1]}`)}\n0. Back`,
     choices: { ...pick(BB, x => D.bdl = x, 'bb_sum'), '0':'BACK' } }),
-  bb_sum: () => confirmScr('Broadband', [`From: ${CARD}`, `Bdl: ${D.bdl[0]} GHC${D.bdl[1]}`, `To: ${D.to}`, `Net: ${D.net}`, 'Fee: GHC 0'],
+  bb_sum: () => confirmScr([`From: ${CARD}`, `Bdl: ${D.bdl[0]} GHC${D.bdl[1]}`, `To: ${D.to}`, 'Name: Kwesi Owusu', `Net: ${D.net}`, 'Fee: GHC 0'],
     () => `${D.bdl[0]} broadband bundle activated on ${D.to}. ${money(D.bdl[1])} debited from ${CARD}. Ref: ${ref()}`),
 
-  /* Funds Transfer */
-  ft: () => ({ text: 'Funds Transfer\n1. Own GCB Accounts\n2. Other GCB Accounts\n3. Other Local Banks\n0. Back',
-    choices: { '1': () => toSrc('Own GCB Accounts','ft_own_ben'), '2': () => toSrc('Other GCB Accounts','ft_gcb_acct'),
-               '3': () => toSrc('Other Local Banks','ft_lb_bank'), '0':'BACK' } }),
-  src: () => ({ text: `${D.srcTitle}\nSelect Source Account:\n${list(ACCTS)}\n0. Back`,
-    choices: { ...pick(ACCTS, x => D.src = x, D.srcNext), '0':'BACK' } }),
-  ft_own_ben: () => { const o = ACCTS.find(a => a !== D.src);
-    return { text: `Own GCB Accounts\nSelect Beneficiary Account:\n1. ${o}\n0. Back`,
-      choices: { '1': () => { D.dest = o; D.name = NAME; D.ft = 'Own GCB Accounts'; return 'ft_amt'; }, '0':'BACK' } }; },
-  ft_gcb_acct: () => ({ text: 'Other GCB Accounts\nEnter Beneficiary Account Number:',
-    input: v => /^\d{13}$/.test(v) ? (D.dest = mask(v), 'ft_gcb_name') : { err: 'Account number must be 13 digits.' } }),
-  ft_gcb_name: () => ({ text: 'Other GCB Accounts\nBeneficiary Name: Awula Tsotso Mills\n\n1. Confirm\n2. Decline',
-    choices: { '1': () => { D.name = 'Awula Tsotso Mills'; D.ft = 'Other GCB Accounts'; return 'ft_amt'; }, '2':'cancelled' } }),
-  ft_lb_bank: () => {
-    const p2 = D.bankPage === 2, items = p2 ? BANKS2 : BANKS1;
-    const ch = { ...pick(items, x => D.bank = x, 'ft_lb_acct'), '0': () => { if (p2) { D.bankPage = 1; return 'SAME'; } return 'BACK'; } };
-    if (!p2) ch['6'] = () => { D.bankPage = 2; return 'SAME'; };
-    return { text: `Other Local Banks\nSelect Bank:\n${list(items)}${p2 ? '' : '\n6. More'}\n0. Back`, choices: ch };
-  },
-  ft_lb_acct: () => ({ text: `Other Local Banks\n${D.bank}\nEnter Beneficiary Account Number:`,
-    input: v => /^\d{10,16}$/.test(v) ? (D.dest = mask(v), 'ft_lb_name') : { err: 'Enter a valid account number (10 to 16 digits).' } }),
-  ft_lb_name: () => ({ text: `Other Local Banks\nBank: ${D.bank}\nBeneficiary Name: Kofi Mensah Boateng\n\n1. Confirm\n2. Decline`,
-    choices: { '1': () => { D.name = 'Kofi Mensah Boateng'; D.ft = 'Other Local Banks'; return 'ft_amt'; }, '2':'cancelled' } }),
-  narr: () => ({ text: `${D.narrTitle}\nEnter Narration:`, textInput: true,
-    input: v => v.length < 2 ? { err: 'Enter a narration for this transaction.' } : v.length > 30 ? { err: 'Narration can be up to 30 characters.' } : (D.narr = v, D.narrNext) }),
-  ft_amt: () => ({ text: `${D.ft}\nEnter Amount:`,
-    input: v => isAmt(v) ? (D.amt = +v, toNarr(D.ft, 'ft_sum')) : { err: 'Enter a valid amount, e.g. 50.' } }),
-  ft_sum: () => confirmScr(D.ft,
-    [`From: ${D.src}`, `To: ${D.dest}`, ...(D.ft==='Other Local Banks'?[`Bank: ${D.bank}`]:[]), `Name: ${D.name}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0', ...NARR()],
-    () => `Acct ${D.src} debited ${money(D.amt)}. Transfer to ${D.name} (${D.dest}). Ref: ${ref()}`),
-
-  /* Pay Bills */
-  pb: () => ({ text: `Pay Bills\n${list(BILLERS, b => b.n)}\n0. Back`,
+  /* ---- GCB Pay (Bills, QR) ---- */
+  gp: () => ({ text: 'GCB Pay\n1. Pay Bills\n2. QR Payment\n0. Back', choices: { '1':'pb', '2':'qr_id', '0':'BACK' } }),
+  pb: () => ({ text: `Select Biller:\n${list(BILLERS, b => b.n)}\n0. Back`,
     choices: { ...pick(BILLERS, x => D.biller = x, 'pb_ref'), '0':'BACK' } }),
-  pb_ref: () => ({ text: `${D.biller.n}\nEnter ${D.biller.ref}:`,
+  pb_ref: () => ({ text: `Enter ${D.biller.ref}:`,
     input: v => /^\d{6,16}$/.test(v) ? (D.ref = v, 'pb_name') : { err: `Enter a valid ${D.biller.ref.toLowerCase()} (6 to 16 digits).` } }),
-  pb_name: () => ({ text: `${D.biller.n}\nName: ${D.biller.name}\n${D.biller.short}: ${D.ref}\n${D.biller.extra}\n\n1. Confirm\n2. Decline`,
+  pb_name: () => ({ text: `Biller: ${D.biller.n}\nName: ${D.biller.name}\n${D.biller.short}: ${D.ref}\n${D.biller.extra}\n\n1. Confirm\n2. Decline`,
     choices: { '1':'pb_amt', '2':'cancelled' } }),
-  pb_amt: () => ({ text: `${D.biller.n}\nEnter Amount:`,
-    input: v => isAmt(v) ? (D.amt = +v, D.narr = '', toSrc(D.biller.n, 'pb_sum')) : { err: 'Enter a valid amount, e.g. 100.' } }),
-  pb_sum: () => confirmScr(D.biller.n,
-    [`From: ${D.src}`, `${D.biller.short}: ${D.ref}`, `Name: ${D.biller.name}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
+  pb_amt: () => ({ text: 'Enter Amount:',
+    input: v => isAmt(v) ? (D.amt = +v, D.narr = '', toSrc('pb_sum')) : { err: 'Enter a valid amount, e.g. 100.' } }),
+  pb_sum: () => confirmScr(
+    [`From: ${D.src}`, `Biller: ${D.biller.n}`, `${D.biller.short}: ${D.ref}`, `Name: ${D.biller.name}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
     () => D.biller.n === 'ECG Prepaid'
       ? `ECG payment of ${money(D.amt)} for meter ${D.ref} successful. Token: 4821-0937-5562-1180-7734. Ref: ${ref()}`
       : `${D.biller.n} payment of ${money(D.amt)} for ${D.ref} successful. Acct ${D.src} debited. Ref: ${ref()}`),
 
-  /* Mobile Money */
-  mm: () => ({ text: 'Mobile Money\n1. Bank to Own Wallet\n2. Bank to Other Wallet\n3. Wallet to Bank\n0. Back',
-    choices: { '1': () => { D.mm = 'Bank to Own Wallet'; D.wnum = MSISDN; D.wname = NAME; D.wnet = 'MTN MoMo'; return 'mm_amt'; },
-               '2': () => { D.mm = 'Bank to Other Wallet'; return 'mm_net'; },
-               '3': () => { D.mm = 'Wallet to Bank'; D.wnet = 'MTN MoMo'; return 'mm_amt'; }, '0':'BACK' } }),
-  mm_net: () => ({ text: `Bank to Other Wallet\nSelect Beneficiary Network:\n${list(WALLETS)}\n0. Back`,
-    choices: { ...pick(WALLETS, x => D.wnet = x, 'mm_num'), '0':'BACK' } }),
-  mm_num: () => ({ text: 'Bank to Other Wallet\nEnter Wallet Number:',
-    input: v => isPhone(v) ? (D.wnum = v, D.wname = 'Ama Serwaa Owusu', 'mm_name') : { err: 'Enter a 10-digit number starting with 0.' } }),
-  mm_name: () => ({ text: `Bank to Other Wallet\nWallet Name: ${D.wname}\nNumber: ${D.wnum}\n\n1. Confirm\n2. Decline`,
-    choices: { '1':'mm_amt', '2':'cancelled' } }),
-  mm_amt: () => ({ text: `${D.mm}${D.mm === 'Bank to Own Wallet' ? `\nTo: ${D.wnet} ${D.wnum}` : D.mm === 'Wallet to Bank' ? `\nFrom: ${D.wnet} ${MSISDN}` : ''}\nEnter Amount:`,
-    input: v => isAmt(v) ? (D.amt = +v, D.mm === 'Wallet to Bank' ? 'mm_dest' : (toNarr(D.mm, 'mm_sum'), toSrc(D.mm, 'narr'))) : { err: 'Enter a valid amount, e.g. 20.' } }),
-  mm_dest: () => ({ text: `Wallet to Bank\nSelect Destination Account:\n${list(ACCTS)}\n0. Back`,
-    choices: { ...pick(ACCTS, x => { D.dest = x; toNarr('Wallet to Bank', 'mm_sum'); }, 'narr'), '0':'BACK' } }),
-  mm_sum: () => D.mm === 'Wallet to Bank'
-    ? confirmScr('Wallet to Bank', [`From: ${D.wnet} ${MSISDN}`, `To: ${D.dest}`, `Name: ${NAME}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0', ...NARR()],
-        () => `Acct ${D.dest} credited ${money(D.amt)} from ${D.wnet} ${MSISDN}. Ref: ${ref()}`, 'done_w2b')
-    : confirmScr(D.mm, [`From: ${D.src}`, `To: ${D.wnet} ${D.wnum}`, `Name: ${D.wname}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0', ...NARR()],
-        () => `${money(D.amt)} sent to ${D.wnet} wallet ${D.wnum} (${D.wname}). Acct ${D.src} debited. Ref: ${ref()}`),
-
-  /* GHQR */
-  qr: () => ({ text: 'GHQR Merchant Pay\n1. Enter Merchant ID\n2. Recent Merchants\n0. Back', choices: { '1':'qr_id', '2':'qr_recent', '0':'BACK' } }),
-  qr_id: () => ({ text: 'GHQR Merchant Pay\nEnter Merchant ID:',
-    input: v => /^\d{6,16}$/.test(v) ? (D.mid = v, D.merchant = 'Melcom - Accra Mall', 'qr_name') : { err: 'Enter the merchant ID shown under the GHQR code (6 to 16 digits).' } }),
-  qr_name: () => ({ text: `GHQR Merchant Pay\nMerchant: ${D.merchant}\nID: ${D.mid}\n\n1. Confirm\n2. Decline`, choices: { '1':'qr_amt', '2':'cancelled' } }),
-  qr_recent: () => ({ text: `Recent Merchants\n${list(MERCHANTS, m => m[0])}\n0. Back`,
-    choices: { ...pick(MERCHANTS, m => { D.merchant = m[0]; D.mid = m[1]; }, 'qr_amt'), '0':'BACK' } }),
-  qr_amt: () => ({ text: `GHQR Merchant Pay\n${D.merchant}\nEnter Amount:`,
-    input: v => isAmt(v) ? (D.amt = +v, toNarr('GHQR Merchant Pay', 'qr_sum'), toSrc('GHQR Merchant Pay', 'narr')) : { err: 'Enter a valid amount, e.g. 75.' } }),
-  qr_sum: () => confirmScr('GHQR Merchant Pay', [`From: ${D.src}`, `To: ${D.merchant}`, `ID: ${D.mid}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0', ...NARR()],
+  qr_id: () => ({ text: 'Enter Terminal ID:',
+    input: v => /^\d{6,16}$/.test(v) ? (D.mid = v, D.merchant = 'Melcom - Accra Mall', 'qr_name') : { err: 'Enter the terminal ID shown under the QR code (6 to 16 digits).' } }),
+  qr_name: () => ({ text: `Merchant: ${D.merchant}\nTerminal ID: ${D.mid}\n\n1. Confirm\n2. Decline`, choices: { '1':'qr_amt', '2':'cancelled' } }),
+  qr_amt: () => ({ text: 'Enter Amount:',
+    input: v => isAmt(v) ? (D.amt = +v, toNarr('qr_sum'), toSrc('narr')) : { err: 'Enter a valid amount, e.g. 75.' } }),
+  qr_sum: () => confirmScr([`From: ${D.src}`, `To: ${D.merchant}`, `Terminal ID: ${D.mid}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0', ...NARR()],
     () => `Payment of ${money(D.amt)} to ${D.merchant} successful. Acct ${D.src} debited. Ref: ${ref()}`),
 
-  /* Code Retrieval */
-  otp_pin: () => ({ text: 'Code Retrieval\nEnter PIN to View Code:', secret: true,
-    input: pinInput('otp_pin', () => { D.otp = String(Math.floor(100000 + Math.random()*900000)); return 'otp_show'; }) }),
-  otp_show: () => ({ text: `Your 6-Digit Code is:\n------------------------------------------------\n ${D.otp}\n------------------------------------------------\nValid for 5 minutes. Never share your code with anyone, including GCB staff.\n\n0. Exit`,
-    choices: { '0': END_THANKS } }),
-  otp_unreg: () => ({ text: 'Code Retrieval\nYou are not registered for GCB Mobile Banking.\n\n1. Register\n0. Exit',
-    choices: { '1':'reg_card', '0': END_THANKS } }),
-
-  /* Help */
-  help: () => ({ text: 'Need Help with GCB Digital?\nReach our customer support via:\n\nEmail: customerservice@gcb.com.gh\nToll free: 0800 422 422\nWhatsApp: 0202 422 422\n\n0. Back', choices: { '0':'BACK' } }),
-
-  /* Salary Advance */
-  sa: () => ({ text: 'Salary Advance\n1. Apply\n2. View / Repay\n0. Back', choices: { '1':'sa_terms', '2':'sa_view', '0':'BACK' } }),
-  sa_terms: () => ({ text: 'Ts & Cs\nSalary advance up to 80% (Max GHS 20,000) for 30 days. Auto-repaid. Fees apply. www.gcbbank.com.gh\n\n1. Accept\n2. Decline',
+  /* ---- Loans ---- */
+  loans: () => ({ text: 'Loans\n1. Salary Advance\n2. MSE Loans\n3. Flexi\n0. Back',
+    choices: { '1':'sa', '2': () => { D.lp = 'MSE Loan'; return 'lp'; }, '3': () => { D.lp = 'Flexi Loan'; return 'lp'; }, '0':'BACK' } }),
+  sa: () => ({ text: 'Select Option:\n1. Apply\n2. View / Repay\n0. Back', choices: { '1':'sa_terms', '2':'sa_view', '0':'BACK' } }),
+  sa_terms: () => ({ text: 'Salary advance up to 80% (Max GHS 20,000) for 30 days. Auto-repaid. Fees apply. www.gcbbank.com.gh\n\n1. Accept\n2. Decline',
     choices: { '1':'sa_amt', '2':'END:Salary advance application cancelled.' } }),
-  sa_amt: () => ({ text: 'Salary Advance\nEnter Amount:\n(Min: 100.00 and Max: 1,400.00)',
+  sa_amt: () => ({ text: 'Enter Amount:\n(Min: 100.00 and Max: 1,400.00)',
     input: v => isAmt(v) && +v >= 100 && +v <= 1400 ? (D.amt = +v, 'sa_sum') : { err: 'Enter an amount between 100.00 and 1,400.00.' } }),
   sa_sum: () => { const q = saQuote(D.amt);
-    return { text: `Summary\nTo: ${SAL_ACCT}\nAmount: ${q.amt}\nPro Fee: ${q.fee}\nYou get: ${q.get}\nRepay: ${q.repay}\n\n1. Confirm\n2. Decline`,
+    return { text: `To: ${SAL_ACCT}\nAmount: ${q.amt}\nPro Fee: ${q.fee}\nYou get: ${q.get}\nRepay: ${q.repay}\n\n1. Confirm\n2. Decline`,
       choices: { '1': () => { const r = ref(); LOANS.push({ amt: D.amt, repay: +q.repay, due: dueDate(), ref: r });
                  setTimeout(() => sms(`Salary advance of GHS ${q.amt} approved. GHS ${q.get} credited to ${SAL_ACCT}. Repay GHS ${q.repay} by ${dueDate()}. Ref: ${r}`), 2600); return 'done'; },
                  '2':'cancelled' } }; },
   sa_view: () => LOANS.length
-    ? { text: `Salary Advance\nActive Loans:\n${LOANS.map((l,i) => `${i+1}) GHS ${l.amt.toFixed(2)} - Repay GHS ${l.repay.toFixed(2)} by ${l.due}`).join('\n')}\n\n1. Repay Loan\n0. Back`,
+    ? { text: `Active Loans:\n${LOANS.map((l,i) => `${i+1}) GHS ${l.amt.toFixed(2)} - Repay GHS ${l.repay.toFixed(2)} by ${l.due}`).join('\n')}\n\n1. Repay Loan\n0. Back`,
         choices: { '1': () => { if (LOANS.length === 1){ D.loan = 0; return 'sa_repay'; } return 'sa_pick'; }, '0':'BACK' } }
-    : { text: 'Salary Advance\nYou have no active salary advance.\n\n0. Back', choices: { '0':'BACK' } },
-  sa_pick: () => ({ text: `Repay Loan\nSelect Loan:\n${list(LOANS, l => `GHS ${l.repay.toFixed(2)} due ${l.due}`)}\n0. Back`,
+    : { text: 'You have no active salary advance.\n\n0. Back', choices: { '0':'BACK' } },
+  sa_pick: () => ({ text: `Select Loan:\n${list(LOANS, l => `GHS ${l.repay.toFixed(2)} due ${l.due}`)}\n0. Back`,
     choices: { ...pick(LOANS, (l,i) => D.loan = i, 'sa_repay'), '0':'BACK' } }),
   sa_repay: () => { const l = LOANS[D.loan];
-    return { text: `Repay Loan\nFrom: ${SAL_ACCT}\nAmount: GHS ${l.repay.toFixed(2)}\nDue: ${l.due}\n\n1. Confirm\n2. Decline`,
+    return { text: `From: ${SAL_ACCT}\nAmount: GHS ${l.repay.toFixed(2)}\nDue: ${l.due}\n\n1. Confirm\n2. Decline`,
       choices: { '1': () => { const amt = l.repay; LOANS.splice(D.loan, 1); setTimeout(() => sms(`Salary advance repayment of GHS ${amt.toFixed(2)} received. Thank you. Ref: ${ref()}`), 2600); return 'done'; }, '2':'cancelled' } }; },
+  lp: () => ({ text: 'Select Option:\n1. Apply\n2. View / Repay\n0. Back', choices: { '1':'lp_apply', '2':'lp_view', '0':'BACK' } }),
+  lp_apply: () => ({ text: `Request a call back for ${D.lp === 'MSE Loan' ? 'an' : 'a'} ${D.lp}?\nPhone: ${MSISDN}\n\n1. Confirm\n2. Decline`,
+    choices: { '1': () => { setTimeout(() => sms(`We have received your ${D.lp} request. A GCB loan officer will call you on ${MSISDN} within 24 hours. Ref: ${ref()}`), 2600); return 'lp_done'; }, '2':'cancelled' } }),
+  lp_done: () => ({ text: `Thank you. A GCB loan officer will call you within 24 hours about your ${D.lp}.` + ANOTHER, choices: { '1':'menu', '2':END_THANKS } }),
+  lp_view: () => ({ text: `You have no active ${D.lp}.\n\n0. Back`, choices: { '0':'BACK' } }),
 
-  /* My Account */
+  /* ---- My Account ---- */
   acc: () => ({ text: 'My Account\n1. Check Balance\n2. Mini Statement\n3. Add Account\n4. Remove Account\n5. Change PIN\n0. Back',
     choices: { '1':'bal_src', '2':'ms_src', '3':'add_acct', '4': () => ACCTS.length > 1 ? 'rm_pick' : 'rm_last', '5':'cp_old', '0':'BACK' } }),
-  bal_src: () => ({ text: `Check Balance\nSelect Account:\n${list(ACCTS)}\n0. Back`,
+  bal_src: () => ({ text: `Select Account:\n${list(ACCTS)}\n0. Back`,
     choices: { ...pick(ACCTS, (x,i) => D.acc = i, 'bal'), '0':'BACK' } }),
-  bal: () => { const b = BAL[D.acc] || [1250.00, 1250.00];
-    return { text: `Account Balance\nAccount: ${ACCTS[D.acc]}\nAvailable: GHS ${fmt(b[0])}\nLedger: GHS ${fmt(b[1])}\n\n0. Back`, choices: { '0':'BACK' } }; },
-  ms_src: () => ({ text: `Mini Statement\nSelect Account:\n${list(ACCTS)}\n0. Back`,
-    choices: { ...pick(ACCTS, (x,i) => { D.acc = i; D.msPage = 1; }, 'ms'), '0':'BACK' } }),
-  ms: () => { const p2 = D.msPage === 2, rows = p2 ? STMT.slice(6) : STMT.slice(0, 6);
-    const ch = { '0': () => { if (p2) { D.msPage = 1; return 'SAME'; } return 'BACK'; } };
-    if (!p2) ch['1'] = () => { D.msPage = 2; return 'SAME'; };
-    return { text: `Mini Statement ${p2 ? '(2/2)' : '(1/2)'}\n${rows.join('\n')}\n\n${p2 ? '' : '1. More\n'}0. Back`, choices: ch }; },
-  add_acct: () => ({ text: 'Add Account\nEnter account number:',
+  bal: () => ({ text: `Account: ${ACCTS[D.acc]}\nAvailable Balance: GHS ${fmt(BAL[D.acc] ?? 1250)}\n\n0. Back`, choices: { '0':'BACK' } }),
+  ms_src: () => ({ text: `Select Account:\n${list(ACCTS)}\n0. Back`,
+    choices: { ...pick(ACCTS, (x,i) => D.acc = i, 'ms'), '0':'BACK' } }),
+  ms: () => ({ text: `Last 5 Transactions:\n${STMT.join('\n')}\n\n0. Back`, choices: { '0':'BACK' } }),
+  add_acct: () => ({ text: 'Enter Account Number:',
     input: v => /^\d{13}$/.test(v) ? (D.newAcct = mask(v), 'add_confirm') : { err: 'Account number must be 13 digits.' } }),
-  add_confirm: () => ({ text: `Confirm Account Details\nName: ${NAME}\nAccount: ${D.newAcct}\n\n1. Confirm\n2. Decline`,
-    choices: { '1': () => ACCTS.includes(D.newAcct) ? 'add_dup' : (ACCTS.push(D.newAcct), BAL.push([860.40, 860.40]), 'add_done'), '2':'cancelled' } }),
+  add_confirm: () => ({ text: `Name: ${NAME}\nAccount: ${D.newAcct}\n\n1. Confirm\n2. Decline`,
+    choices: { '1': () => ACCTS.includes(D.newAcct) ? 'add_dup' : (ACCTS.push(D.newAcct), BAL.push(860.40), 'add_done'), '2':'cancelled' } }),
   add_done: () => ({ text: `Account ${D.newAcct} added successfully. You can now use it for transactions.\n\n0. Back`, choices: { '0': () => (stack = ['landing','menu','acc'], 'SAME_ACC') } }),
   add_dup: () => ({ text: `Account ${D.newAcct} is already linked to your profile.\n\n0. Back`, choices: { '0': () => (stack = ['landing','menu','acc'], 'SAME_ACC') } }),
-  rm_pick: () => ({ text: `Remove Account\nSelect account to remove:\n${list(ACCTS)}\n0. Back`,
+  rm_pick: () => ({ text: `Select Account to Remove:\n${list(ACCTS)}\n0. Back`,
     choices: { ...pick(ACCTS, (x,i) => { D.rm = i; }, 'rm_confirm'), '0':'BACK' } }),
-  rm_confirm: () => ({ text: `Remove Account\nName: ${NAME}\nAccount: ${ACCTS[D.rm]}\n\nThis account will no longer be available on GCB Digital.\n\n1. Confirm\n2. Decline`,
+  rm_confirm: () => ({ text: `Name: ${NAME}\nAccount: ${ACCTS[D.rm]}\n\nThis account will no longer be available on GCB Digital.\n\n1. Confirm\n2. Decline`,
     choices: { '1': () => { D.removed = ACCTS[D.rm]; ACCTS.splice(D.rm, 1); BAL.splice(D.rm, 1); return 'rm_done'; }, '2':'cancelled' } }),
   rm_done: () => ({ text: `Account ${D.removed} removed successfully.\n\n0. Back`, choices: { '0': () => (stack = ['landing','menu','acc'], 'SAME_ACC') } }),
-  rm_last: () => ({ text: `Remove Account\nYou cannot remove ${ACCTS[0]}. At least one account must stay linked to GCB Digital.\n\n0. Back`, choices: { '0':'BACK' } }),
-  cp_old: () => ({ text: 'Change PIN\nEnter Current PIN:', secret: true, input: pinInput('cp_old', () => 'cp_new') }),
-  cp_new: () => ({ text: 'Change PIN\nEnter New 4-digit PIN:', secret: true, input: newPin('cp_new2') }),
-  cp_new2: () => ({ text: 'Change PIN\nConfirm New PIN:', secret: true,
+  rm_last: () => ({ text: `You cannot remove ${ACCTS[0]}. At least one account must stay linked to GCB Digital.\n\n0. Back`, choices: { '0':'BACK' } }),
+  cp_old: () => ({ text: 'Enter Current PIN:', secret: true, input: pinInput('cp_old', () => 'cp_new') }),
+  cp_new: () => ({ text: 'Enter New 4-digit PIN:', secret: true, input: newPin('cp_new2') }),
+  cp_new2: () => ({ text: 'Confirm New PIN:', secret: true,
     input: confirmPin('cp_new', () => { pin = D.newPin; return 'cp_done'; }) }),
-  cp_done: () => ({ text: 'PIN changed successfully.\n\n0. Back', choices: { '0': () => (stack = ['landing','menu','acc'], 'SAME_ACC') } }),
+  cp_done: () => ({ text: 'PIN changed successfully.\n Do not share your PIN with anyone, including GCB staff.\n\n0. Back', choices: { '0': () => (stack = ['landing','menu','acc'], 'SAME_ACC') } }),
+
+  /* Help */
+  help: () => ({ text: 'Need Help with GCB Digital?\nReach our customer support via:\n\nEmail: customerservice@gcb.com.gh\nToll free: 0800 422 422\nWhatsApp: 0202 422 422\n\n0. Back', choices: { '0':'BACK' } }),
 
   /* Outcomes */
   done: () => ({ text: 'Your request is being processed and you will be updated shortly.' + ANOTHER, choices: { '1':'menu', '2':END_THANKS } }),
@@ -797,7 +800,8 @@ function render(id, err){
   if (dev === 'fp'){ fpSet({ mode:'view', text: curScreen.text, err, input:'' }); return; }
   msg.className = 'msg';
   const [h, ...rest] = curScreen.text.split('\n'); const body = rest.join('\n').replace(/^\n+/, '');
-  msg.innerHTML = `<div class="t">${esc(h)}</div>` + (err ? `<span class="err">${esc(err)}</span>` : '') + (body ? `<div class="b">${esc(body)}</div>` : '');
+  const E = err ? `<span class="err">${esc(err)}</span>` : '';
+  msg.innerHTML = (curScreen.choices ? E : '') + `<div class="t">${esc(h)}</div>` + (curScreen.choices ? '' : E) + (body ? `<div class="b">${esc(body)}</div>` : '');
   inp.value = ''; msg.scrollTop = 0;
   setMode('view');
   logNet(curScreen.text, err);
