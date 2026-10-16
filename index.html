@@ -455,7 +455,7 @@ const BUNDLES = {
 const BB = [['10GB',50],['25GB',100],['60GB',200],['120GB',350]];
 const CATS = ['Flexi','SMS','Social Media','Talk Time','Video'];
 const BILLERS = [
-  {n:'ECG Prepaid',ref:'Meter Number',short:'Meter',name:'Kwame Asante',extra:'Arrears: GHC0.00'},
+  {n:'ECG',ref:'Meter Number',short:'Meter',name:'Kwame Asante',extra:'Arrears: GHC0.00'},
   {n:'Ghana Water',ref:'Account Number',short:'Acct',name:'Abena Kyei',extra:'Amount Due: GHC86.40'},
   {n:'DStv',ref:'Smartcard Number',short:'Card',name:'Yaw Darko',extra:'Package: Compact'},
   {n:'GOtv',ref:'IUC Number',short:'IUC',name:'Efua Mensah',extra:'Package: GOtv Max'},
@@ -526,11 +526,11 @@ const SC = {
     choices: { '1': () => registered ? 'login' : 'reg_card', '2': () => { D.code = String(Math.floor(100000 + Math.random()*900000)); return 'code'; }, '3': 'help', '0': 'END:Thank you for choosing GCB.' } }),
 
   /* Code Retrieval (open to everyone) */
-  code: () => ({ text: `Your code is\n----------------------------------------------\n ${D.code}\n----------------------------------------------\nValid for 5 minutes. Do not share this code with anyone, including GCB staff.\n\n0. Exit`,
+  code: () => ({ text: `Your code is ${D.code}\nValid for 5 minutes. Do not share this code with anyone, including GCB staff.\n\n0. Exit`,
     choices: { '0': END_THANKS } }),
 
   /* Registration (0 exits at every step) */
-  reg_card: () => ({ text: 'Enter your Ghana Card number:\n(e.g. GHAXXXXXXXXXX)', textInput: true, upper: true,
+  reg_card: () => ({ text: 'Register\nEnter your Ghana Card number:\n(e.g. GHAXXXXXXXXXX)', textInput: true, upper: true,
     input: v => /^(GHA-?)?\d{9}-?\d$/i.test(v) ? (D.gcard = v, 'reg_acct') : { err: 'Enter your Ghana Card number, e.g. GHA7234567890.' } }),
   reg_acct: () => ({ text: 'Enter your GCB account number:',
     input: v => /^\d{13}$/.test(v) ? (D.acct = v, 'reg_confirm') : { err: 'Account number must be 13 digits.' } }),
@@ -653,16 +653,16 @@ const SC = {
   pb: () => ({ text: `Select Biller:\n${list(BILLERS, b => b.n)}\n0. Back`,
     choices: { ...pick(BILLERS, x => D.biller = x, 'pb_ref'), '0':'BACK' } }),
   pb_ref: () => ({ text: `Enter ${D.biller.ref}:`,
-    input: v => /^\d{6,16}$/.test(v) ? (D.ref = v, 'pb_name') : { err: `Enter a valid ${D.biller.ref.toLowerCase()} (6 to 16 digits).` } }),
-  pb_name: () => ({ text: `Biller: ${D.biller.n}\nName: ${D.biller.name}\n${D.biller.short}: ${D.ref}\n${D.biller.extra}\n\n1. Confirm\n2. Decline`,
+    input: v => /^\d{6,16}$/.test(v) ? (D.ref = v, D.bname = D.biller.n === 'ECG' ? (v[0] === '2' ? 'ECG Postpaid' : 'ECG Prepaid') : D.biller.n, 'pb_name') : { err: `Enter a valid ${D.biller.ref.toLowerCase()} (6 to 16 digits).` } }),
+  pb_name: () => ({ text: `Biller: ${D.bname}\nName: ${D.biller.name}\n${D.biller.short}: ${D.ref}\n${D.bname === 'ECG Postpaid' ? 'Amount Due: GHC245.60' : D.biller.extra}\n\n1. Confirm\n2. Decline`,
     choices: { '1':'pb_amt', '2':'cancelled' } }),
   pb_amt: () => ({ text: 'Enter Amount:',
     input: v => isAmt(v) ? (D.amt = +v, D.narr = '', toSrc('pb_sum')) : { err: 'Enter a valid amount, e.g. 100.' } }),
   pb_sum: () => confirmScr(
-    [`From: ${D.src}`, `Biller: ${D.biller.n}`, `${D.biller.short}: ${D.ref}`, `Name: ${D.biller.name}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
-    () => D.biller.n === 'ECG Prepaid'
-      ? `ECG payment of ${money(D.amt)} for meter ${D.ref} successful. Token: 4821-0937-5562-1180-7734. Ref: ${ref()}`
-      : `${D.biller.n} payment of ${money(D.amt)} for ${D.ref} successful. Acct ${D.src} debited. Ref: ${ref()}`),
+    [`From: ${D.src}`, `Biller: ${D.bname}`, `${D.biller.short}: ${D.ref}`, `Name: ${D.biller.name}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0'],
+    () => D.bname === 'ECG Prepaid'
+      ? `ECG Prepaid payment of ${money(D.amt)} for meter ${D.ref} successful. Token: 4821-0937-5562-1180-7734. Ref: ${ref()}`
+      : `${D.bname} payment of ${money(D.amt)} for ${D.ref} successful. Acct ${D.src} debited. Ref: ${ref()}`),
 
   qr_id: () => ({ text: 'Enter Terminal ID:',
     input: v => /^\d{6,16}$/.test(v) ? (D.mid = v, D.merchant = 'Melcom - Accra Mall', 'qr_name') : { err: 'Enter the terminal ID shown under the QR code (6 to 16 digits).' } }),
@@ -722,10 +722,10 @@ const SC = {
   rm_done: () => ({ text: `Account ${D.removed} removed successfully.\n\n0. Back`, choices: { '0': () => (stack = ['landing','menu','acc'], 'SAME_ACC') } }),
   rm_last: () => ({ text: `You cannot remove ${ACCTS[0]}. At least one account must stay linked to GCB Digital.\n\n0. Back`, choices: { '0':'BACK' } }),
   cp_old: () => ({ text: 'Enter Current PIN:', secret: true, input: pinInput('cp_old', () => 'cp_new') }),
-  cp_new: () => ({ text: 'Enter New 4-digit PIN:', secret: true, input: newPin('cp_new2') }),
+  cp_new: () => ({ text: 'Enter New 4-digit PIN:\nDo not share your PIN with anyone.', secret: true, input: newPin('cp_new2') }),
   cp_new2: () => ({ text: 'Confirm New PIN:', secret: true,
     input: confirmPin('cp_new', () => { pin = D.newPin; return 'cp_done'; }) }),
-  cp_done: () => ({ text: 'PIN changed successfully.\n Do not share your PIN with anyone, including GCB staff.\n\n0. Back', choices: { '0': () => (stack = ['landing','menu','acc'], 'SAME_ACC') } }),
+  cp_done: () => ({ text: 'PIN changed successfully. Do not share your PIN with anyone, including GCB staff.\n\n0. Back', choices: { '0': () => (stack = ['landing','menu','acc'], 'SAME_ACC') } }),
 
   /* Help */
   help: () => ({ text: 'Need Help with GCB Digital?\nReach our customer support via:\n\nEmail: customerservice@gcb.com.gh\nToll free: 0800 422 422\nWhatsApp: 0202 422 422\n\n0. Back', choices: { '0':'BACK' } }),
