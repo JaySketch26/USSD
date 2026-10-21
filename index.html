@@ -461,14 +461,44 @@ const BILLERS = [
   {n:'GOtv',ref:'IUC Number',short:'IUC',name:'Efua Mensah',extra:'Package: GOtv Max'},
   {n:'StarTimes',ref:'Smartcard Number',short:'Card',name:'Kojo Antwi',extra:'Package: Classic'}
 ];
-// PAPSS corridors: [country, currency, sample rate per 1 GHS, sample beneficiary]
+// PAPSS corridors: country, currency, sample rate per 1 GHS, sample beneficiary, banks (most-used first), cities
+const C = (c, cur, rate, ben, banks, cities) => ({ c, cur, rate, ben, banks, cities });
 const PAPSS = [
-  ['A - E', [['Benin','XOF',38.50,'Koffi Agbodjan'],['Botswana','BWP',0.87,'Kagiso Molefe'],['Cameroon','XAF',38.50,'Ngono Marie'],["Cote d'Ivoire",'XOF',38.50,'Yao Konan'],['Egypt','EGP',3.10,'Ahmed Hassan']]],
-  ['F - J', [['Gabon','XAF',38.50,'Nzue Ondo'],['Gambia','GMD',4.60,'Lamin Jallow'],['Guinea','GNF',550.00,'Mamadou Bah']]],
-  ['K - O', [['Kenya','KES',8.30,'Wanjiku Mwangi'],['Liberia','LRD',12.40,'Musu Kollie'],['Malawi','MWK',111.00,'Chikondi Banda'],['Nigeria','NGN',98.50,'Adaeze Okafor']]],
-  ['P - T', [['Rwanda','RWF',92.00,'Uwase Aline'],['Senegal','XOF',38.50,'Awa Ndiaye'],['Sierra Leone','SLE',1.45,'Fatmata Kamara'],['South Africa','ZAR',1.17,'Thabo Nkosi'],['Tanzania','TZS',170.00,'Neema Mushi']]],
-  ['U - Z', [['Uganda','UGX',236.00,'Okello Peter'],['Zambia','ZMW',1.70,'Mwila Phiri'],['Zimbabwe','ZWG',1.70,'Tendai Moyo']]]
+  ['A - E', [C('Benin','XOF',38.50,'Koffi Agbodjan',['Ecobank Benin','Bank of Africa','Orabank','UBA Benin'],['Cotonou','Porto-Novo','Parakou']),
+             C('Botswana','BWP',0.87,'Kagiso Molefe',['FNB Botswana','Absa Botswana','Stanbic Botswana','BancABC'],['Gaborone','Francistown','Maun']),
+             C('Cameroon','XAF',38.50,'Ngono Marie',['Afriland First Bank','SCB Cameroun','Ecobank Cameroon','Societe Generale'],['Douala','Yaounde','Bamenda']),
+             C("Cote d'Ivoire",'XOF',38.50,'Yao Konan',['SGBCI','Ecobank CI','NSIA Banque','BICICI'],['Abidjan','Bouake','Yamoussoukro']),
+             C('Egypt','EGP',3.10,'Ahmed Hassan',['National Bank of Egypt','Banque Misr','CIB'],['Cairo','Alexandria','Giza'])]],
+  ['F - J', [C('Gabon','XAF',38.50,'Nzue Ondo',['BGFIBank','UGB','Orabank Gabon'],['Libreville','Port-Gentil','Franceville']),
+             C('Gambia','GMD',4.60,'Lamin Jallow',['Trust Bank','Ecobank Gambia','GTBank Gambia'],['Banjul','Serekunda','Brikama']),
+             C('Guinea','GNF',550.00,'Mamadou Bah',['Ecobank Guinea','Orabank Guinea','SG Guinee'],['Conakry','Kankan','Labe'])]],
+  ['K - O', [C('Kenya','KES',8.30,'Wanjiku Mwangi',['Equity Bank','KCB Bank','Co-operative Bank','NCBA','Absa Kenya'],['Nairobi','Mombasa','Kisumu','Nakuru']),
+             C('Liberia','LRD',12.40,'Musu Kollie',['Ecobank Liberia','LBDI','GTBank Liberia'],['Monrovia','Gbarnga','Buchanan']),
+             C('Malawi','MWK',111.00,'Chikondi Banda',['National Bank of Malawi','Standard Bank','FDH Bank'],['Lilongwe','Blantyre','Mzuzu']),
+             C('Nigeria','NGN',98.50,'Adaeze Okafor',['Access Bank','Zenith Bank','GTBank','First Bank','UBA'],['Lagos','Abuja','Port Harcourt','Kano','Ibadan'])]],
+  ['P - T', [C('Rwanda','RWF',92.00,'Uwase Aline',['Bank of Kigali','Equity Bank Rwanda','I&M Bank'],['Kigali','Huye','Musanze']),
+             C('Senegal','XOF',38.50,'Awa Ndiaye',['CBAO','Ecobank Senegal','SG Senegal'],['Dakar','Thies','Saint-Louis']),
+             C('Sierra Leone','SLE',1.45,'Fatmata Kamara',['Rokel Commercial Bank','SL Commercial Bank','Ecobank SL'],['Freetown','Bo','Kenema']),
+             C('South Africa','ZAR',1.17,'Thabo Nkosi',['Standard Bank','FNB','Absa','Capitec','Nedbank'],['Johannesburg','Cape Town','Durban','Pretoria']),
+             C('Tanzania','TZS',170.00,'Neema Mushi',['CRDB Bank','NMB Bank','NBC'],['Dar es Salaam','Dodoma','Arusha','Mwanza'])]],
+  ['U - Z', [C('Uganda','UGX',236.00,'Okello Peter',['Stanbic Uganda','Centenary Bank','dfcu Bank'],['Kampala','Entebbe','Gulu']),
+             C('Zambia','ZMW',1.70,'Mwila Phiri',['Zanaco','Stanbic Zambia','FNB Zambia'],['Lusaka','Ndola','Kitwe']),
+             C('Zimbabwe','ZWG',1.70,'Tendai Moyo',['CBZ Bank','Stanbic Zimbabwe','FBC Bank'],['Harare','Bulawayo','Mutare'])]]
 ];
+const ppFind = n => PAPSS.flatMap(r => r[1]).find(x => x.c === n);
+const PP_TOP = ['Nigeria',"Cote d'Ivoire",'Kenya','South Africa'].map(ppFind);
+const PP_SAVED = [
+  { name:'Adaeze Okafor', c:'Nigeria', bank:'Access Bank', acct:'012XXX6789', city:'Lagos' },
+  { name:'Wanjiku Mwangi', c:'Kenya', bank:'Equity Bank', acct:'014XXXXX3321', city:'Nairobi' },
+  { name:'Yao Konan', c:"Cote d'Ivoire", bank:'SGBCI', acct:'CI0XXXXXX4410', city:'Abidjan' }
+];
+const PP_MIN = 10, PP_MAX = 5000;
+const ppFee = a => Math.min(50, Math.max(5, a * 0.01));
+// Placeholder purposes (replace with the official 20), shown PP_PAGE per screen with "8. More"
+const PP_PURPOSES = ['Family support','Gifts','Personal savings','Wedding / Funeral','School fees','Books & supplies','Medical bills',
+  'Insurance','Purchase of goods','Payment for services','Supplier payment','Business investment','Rent','Property purchase',
+  'Construction','Utilities','Salary / Wages','Loan repayment','Charity / Donation','Travel'];
+const PP_PAGE = 7;
 const BANK_RANGES = [
   ['A - E', ['Absa Bank','Access Bank','ADB','Bank of Africa','CalBank','CBG','Ecobank']],
   ['F - J', ['FBNBank','Fidelity Bank','First Atlantic Bank','First National Bank','GTBank']],
@@ -495,10 +525,14 @@ const isPhone = v => /^0\d{9}$/.test(v);
 const weak = v => /^(\d)\1{3}$/.test(v) || '0123456789'.includes(v) || '9876543210'.includes(v);
 const ref = () => 'GCB' + Math.floor(1e9 + Math.random()*9e9);
 const list = (arr, f = x => x) => arr.map((x,i) => `${i+1}. ${f(x)}`).join('\n');
-const pick = (arr, set, next) => Object.fromEntries(arr.map((x,i) => [String(i+1), () => { set(x,i); return next; }]));
+const pick = (arr, set, next) => Object.fromEntries(arr.map((x,i) => [String(i+1), () => { set(x,i); return typeof next === 'function' ? next() : next; }]));
 const toNarr = next => { D.narrNext = next; D.narr = ''; return 'narr'; };
 const NARR = () => D.narr ? [`Narr: ${D.narr}`] : [];
-const toSrc = next => { D.srcNext = next; return 'src'; };
+// Source account step: always right after amount; skipped when only one account is eligible
+const toSrc = (next, skip) => { const o = ACCTS.filter(a => a !== skip);
+  if (o.length === 1){ D.src = o[0]; return next; } D.srcOpts = o; D.srcNext = next; return 'src'; };
+// Go back to an earlier screen in the stack (e.g. "Change" on a quote)
+const backTo = id => { stack.splice(stack.lastIndexOf(id) + 1); stack.push(cur); return 'BACK'; };
 const ANOTHER = '\nDo you want to perform another transaction?\n1. Yes\n2. No';
 const END_THANKS = 'END:Thank you for banking with GCB.';
 
@@ -530,11 +564,11 @@ function confirmPin(back, done){
 
 /* ---------- Screens ---------- */
 const SC = {
-  landing: () => ({ text: 'Welcome to GCB Digital\n1. GCB Mobile Banking\n2. Code Retrieval\n3. Help\n\n0. Exit',
+  landing: () => ({ text: 'Welcome to GCB Digital\n1. GCB Mobile Banking\n2. Retrieve my Code\n3. Help\n\n0. Exit',
     choices: { '1': () => registered ? 'login' : 'reg_card', '2': () => { D.code = String(Math.floor(100000 + Math.random()*900000)); return 'code'; }, '3': 'help', '0': 'END:Thank you for choosing GCB.' } }),
 
   /* Code Retrieval (open to everyone) */
-  code: () => ({ text: `Your code is ${D.code}\nValid for 5 minutes. Do not share this code with anyone, including GCB staff.\n\n0. Exit`,
+  code: () => ({ text: `Your code is\n--------------------------------\n${D.code}\n--------------------------------\nValid for 5 minutes. Do not share this code with anyone, including GCB staff.\n\n0. Exit`,
     choices: { '0': END_THANKS } }),
 
   /* Registration (0 exits at every step) */
@@ -553,12 +587,12 @@ const SC = {
 
   /* Sign-in + main menu */
   login: () => ({ text: 'GCB Mobile\nEnter your 4-digit PIN:', secret: true, input: pinInput('login', () => 'menu') }),
-  menu: () => ({ text: 'GCB Mobile\n1. Mobile Money\n2. Transfers\n3. Airtime & Data\n4. Bill Payment\n5. QR Payment\n6. Loans\n7. My Account\n0. Exit',
-    choices: { '1':'mm','2':'ft','3':'ab','4':'pb','5':'qr_id','6':'loans','7':'acc','0':END_THANKS } }),
+  menu: () => ({ text: 'GCB Mobile\n1. Mobile Money\n2. Transfers\n3. Airtime & Data\n4. Bills & Payments\n5. Loans\n6. My Account\n0. Exit',
+    choices: { '1':'mm','2':'ft','3':'ab','4':'bp','5':'loans','6':'acc','0':END_THANKS } }),
 
   /* ---- Mobile Money ---- */
   mm: () => ({ text: 'Mobile Money\n1. Bank to Own Wallet\n2. Bank to Other Wallet\n3. Wallet to Bank\n0. Back',
-    choices: { '1': () => { D.mm = 'own'; D.wnum = MSISDN; D.wname = NAME; D.wnet = 'MTN MoMo'; D.src = ACCTS[0]; return 'mm_amt'; },
+    choices: { '1': () => { D.mm = 'own'; D.wnum = MSISDN; D.wname = NAME; D.wnet = 'MTN MoMo'; return 'mm_amt'; },
                '2': () => { D.mm = 'other'; return 'mm_net'; },
                '3': () => { D.mm = 'w2b'; D.wnet = 'MTN MoMo'; return 'mm_amt'; }, '0':'BACK' } }),
   mm_net: () => ({ text: `Select Network:\n${list(WALLETS)}\n0. Back`,
@@ -569,7 +603,7 @@ const SC = {
     choices: { '1':'mm_amt', '2':'cancelled' } }),
   mm_amt: () => ({ text: 'Enter Amount:',
     input: v => !isAmt(v) ? { err: 'Enter a valid amount, e.g. 20.' }
-      : (D.amt = +v, D.mm === 'w2b' ? 'mm_dest' : D.mm === 'own' ? toNarr('mm_sum') : (toNarr('mm_sum'), toSrc('narr'))) }),
+      : (D.amt = +v, D.mm === 'w2b' ? 'mm_dest' : (toNarr('mm_sum'), toSrc('narr'))) }),
   mm_dest: () => ({ text: `Select Destination Account:\n${list(ACCTS)}\n0. Back`,
     choices: { ...pick(ACCTS, x => { D.dest = x; toNarr('mm_sum'); }, 'narr'), '0':'BACK' } }),
   mm_sum: () => D.mm === 'w2b'
@@ -580,27 +614,51 @@ const SC = {
 
   /* ---- Transfers ---- */
   ft: () => ({ text: 'Transfers\n1. Own GCB Accounts\n2. Other GCB Accounts\n3. Other Banks\n4. PAPSS (Africa)\n0. Back',
-    choices: { '1': () => { D.ft = 'own'; return toSrc('ft_own_ben'); }, '2': () => { D.ft = 'gcb'; return toSrc('ft_gcb_acct'); },
-               '3': () => { D.ft = 'lb'; return toSrc('ft_lb_range'); }, '4':'pp_range', '0':'BACK' } }),
+    choices: { '1': () => { D.ft = 'own'; return 'ft_own_ben'; }, '2': () => { D.ft = 'gcb'; return 'ft_gcb_acct'; },
+               '3': () => { D.ft = 'lb'; return 'ft_lb_range'; }, '4':'pp', '0':'BACK' } }),
 
   /* PAPSS: pan-African transfer */
+  pp: () => ({ text: 'PAPSS (Africa)\n1. Saved Beneficiary\n2. New Beneficiary\n0. Back',
+    choices: { '1':'pp_saved', '2': () => { D.saved = false; return 'pp_country'; }, '0':'BACK' } }),
+  pp_saved: () => ({ text: `Select Beneficiary:\n${list(PP_SAVED, r => `${r.name} - ${r.bank} (${r.c})`)}\n0. Back`,
+    choices: { ...pick(PP_SAVED, r => { D.saved = true; D.pc = ppFind(r.c); D.bank = r.bank; D.dest = r.acct; D.name = r.name; D.city = r.city; }, 'pp_amt'), '0':'BACK' } }),
+  pp_country: () => ({ text: `Select Country:\n${list(PP_TOP, c => c.c)}\n${PP_TOP.length + 1}. Other Countries\n0. Back`,
+    choices: { ...pick(PP_TOP, c => D.pc = c, 'pp_bank'), [PP_TOP.length + 1]:'pp_range', '0':'BACK' } }),
   pp_range: () => ({ text: `Select Country:\n${list(PAPSS, r => r[0])}\n0. Back`,
-    choices: { ...pick(PAPSS, r => D.prange = r, 'pp_country'), '0':'BACK' } }),
-  pp_country: () => ({ text: `Select Country:\n${list(D.prange[1], c => c[0])}\n0. Back`,
-    choices: { ...pick(D.prange[1], c => D.pc = c, 'pp_acct'), '0':'BACK' } }),
+    choices: { ...pick(PAPSS, r => D.prange = r, 'pp_other'), '0':'BACK' } }),
+  pp_other: () => ({ text: `Select Country:\n${list(D.prange[1], c => c.c)}\n0. Back`,
+    choices: { ...pick(D.prange[1], c => D.pc = c, 'pp_bank'), '0':'BACK' } }),
+  pp_bank: () => ({ text: `Select Bank:\n${list(D.pc.banks)}\n0. Back`,
+    choices: { ...pick(D.pc.banks, x => D.bank = x, 'pp_acct'), '0':'BACK' } }),
   pp_acct: () => ({ text: 'Enter Beneficiary Account Number:',
-    input: v => /^\d{8,16}$/.test(v) ? (D.dest = mask(v), 'pp_amt') : { err: 'Enter a valid account number (8 to 16 digits).' } }),
-  pp_amt: () => ({ text: 'Enter Amount (GHS):',
-    input: v => isAmt(v) ? (D.amt = +v, 'pp_sum') : { err: 'Enter a valid amount, e.g. 500.' } }),
-  pp_sum: () => { const [country, cur, rate, name] = D.pc, get = D.amt * rate;
-    return confirmScr([`Name: ${name}`, `Country: ${country}`, `Account: ${D.dest}`, `Amount: GHS ${fmt(D.amt)}`, `Rate: 1 GHS = ${rate.toFixed(2)} ${cur}`, `Receives: ${cur} ${fmt(get)}`],
-      () => `PAPSS transfer of GHS ${fmt(D.amt)} to ${name} (${country}) successful. Beneficiary receives ${cur} ${fmt(get)}. Ref: ${ref()}`); },
-  src: () => ({ text: `Select Source Account:\n${list(ACCTS)}\n0. Back`,
-    choices: { ...pick(ACCTS, x => D.src = x, D.srcNext), '0':'BACK' } }),
-  ft_own_ben: () => { const o = ACCTS.filter(a => a !== D.src);
-    return o.length
-      ? { text: `Select Beneficiary Account:\n${list(o)}\n0. Back`, choices: { ...pick(o, x => { D.dest = x; D.name = NAME; }, 'ft_amt'), '0':'BACK' } }
-      : { text: 'You need at least two linked accounts to transfer between your own accounts.\n\n0. Back', choices: { '0':'BACK' } }; },
+    input: v => /^\d{8,16}$/.test(v) ? (D.dest = mask(v), D.name = D.pc.ben, 'pp_name') : { err: 'Enter a valid account number (8 to 16 digits).' } }),
+  pp_name: () => ({ text: `Account Name: ${D.name}\nBank: ${D.bank}\nAccount: ${D.dest}\n\n1. Confirm\n2. Re-enter`,
+    choices: { '1':'pp_amt', '2':'BACK' } }),
+  pp_amt: () => ({ text: `Enter Amount (GHS):\n(Min: ${fmt(PP_MIN)} and Max: ${fmt(PP_MAX)})`,
+    input: v => isAmt(v) && +v >= PP_MIN && +v <= PP_MAX ? (D.amt = +v, D.get = +v * D.pc.rate, toSrc('pp_quote'))
+      : { err: `Enter an amount between ${fmt(PP_MIN)} and ${fmt(PP_MAX)}.` } }),
+  pp_quote: () => { const { cur, rate } = D.pc, fee = ppFee(D.amt);
+    return { text: `Quote\nRate: 1 GHS = ${rate.toFixed(2)} ${cur}\nSend: GHS ${fmt(D.amt)}\nFee: GHS ${fmt(fee)}\nTotal: GHS ${fmt(D.amt + fee)}\nThey get: ${cur} ${fmt(D.get)}\n\n1. Continue\n2. Change`,
+      choices: { '1': () => { D.ppg = 0; return 'pp_purp'; }, '2': () => backTo('pp_amt') } }; },
+  pp_purp: () => {
+    const items = PP_PURPOSES.slice(D.ppg * PP_PAGE, (D.ppg + 1) * PP_PAGE), more = (D.ppg + 1) * PP_PAGE < PP_PURPOSES.length;
+    const ch = { ...pick(items, x => D.purpose = x, () => D.saved ? 'pp_sum' : 'pp_city'), '0': () => { if (D.ppg > 0) { D.ppg--; return 'SAME'; } return 'BACK'; } };
+    if (more) ch['8'] = () => { D.ppg++; return 'SAME'; };
+    return { text: `Select Purpose:\n${list(items)}${more ? '\n8. More' : ''}\n0. Back`, choices: ch };
+  },
+  pp_city: () => { const cs = D.pc.cities;
+    return { text: `Beneficiary City:\n${list(cs)}\n${cs.length + 1}. Other - type city\n0. Back`,
+      choices: { ...pick(cs, x => D.city = x, 'pp_sum'), [cs.length + 1]:'pp_city_txt', '0':'BACK' } }; },
+  pp_city_txt: () => ({ text: 'Enter Beneficiary City:', textInput: true,
+    input: v => /^[a-zA-Z][a-zA-Z .'-]{1,29}$/.test(v) ? (D.city = v, 'pp_sum') : { err: 'Enter a valid city name.' } }),
+  pp_sum: () => { const { c, cur } = D.pc, fee = ppFee(D.amt);
+    return confirmScr([`Name: ${D.name}`, `Bank: ${D.bank}, ${c}`, `Sending: GHS ${fmt(D.amt)}`, `Fee: GHS ${fmt(fee)}`, `Receiving: ${cur} ${fmt(D.get)}`],
+      () => `PAPSS transfer of GHS ${fmt(D.amt)} to ${D.name} (${D.bank}, ${D.city}, ${c}) successful. Beneficiary receives ${cur} ${fmt(D.get)}. Acct ${D.src} debited GHS ${fmt(D.amt + fee)}. Ref: ${ref()}`); },
+  src: () => ({ text: `Select Source Account:\n${list(D.srcOpts)}\n0. Back`,
+    choices: { ...pick(D.srcOpts, x => D.src = x, D.srcNext), '0':'BACK' } }),
+  ft_own_ben: () => ACCTS.length > 1
+    ? { text: `Select Beneficiary Account:\n${list(ACCTS)}\n0. Back`, choices: { ...pick(ACCTS, x => { D.dest = x; D.name = NAME; }, 'ft_amt'), '0':'BACK' } }
+    : { text: 'You need at least two linked accounts to transfer between your own accounts.\n\n0. Back', choices: { '0':'BACK' } },
   ft_gcb_acct: () => ({ text: 'Enter Beneficiary Account Number:',
     input: v => /^\d{13}$/.test(v) ? (D.dest = mask(v), 'ft_gcb_name') : { err: 'Account number must be 13 digits.' } }),
   ft_gcb_name: () => ({ text: `Beneficiary Name: Awula Tsotso Mills\nAccount: ${D.dest}\n\n1. Confirm\n2. Decline`,
@@ -614,7 +672,7 @@ const SC = {
   ft_lb_name: () => ({ text: `Bank: ${D.bank}\nBeneficiary Name: Kofi Mensah Boateng\nAccount: ${D.dest}\n\n1. Confirm\n2. Decline`,
     choices: { '1': () => { D.name = 'Kofi Mensah Boateng'; return 'ft_amt'; }, '2':'cancelled' } }),
   ft_amt: () => ({ text: 'Enter Amount:',
-    input: v => isAmt(v) ? (D.amt = +v, toNarr('ft_sum')) : { err: 'Enter a valid amount, e.g. 50.' } }),
+    input: v => isAmt(v) ? (D.amt = +v, toNarr('ft_sum'), toSrc('narr', D.ft === 'own' ? D.dest : null)) : { err: 'Enter a valid amount, e.g. 50.' } }),
   ft_sum: () => confirmScr(
     [`From: ${D.src}`, `To: ${D.dest}`, ...(D.ft === 'lb' ? [`Bank: ${D.bank}`] : []), `Name: ${D.name}`, `AMT: ${money(D.amt)}`, 'Fee: GHC 0', ...NARR()],
     () => `Acct ${D.src} debited ${money(D.amt)}. Transfer to ${D.name} (${D.dest}). Ref: ${ref()}`),
@@ -669,8 +727,9 @@ const SC = {
   bb_sum: () => confirmScr([`From: ${CARD}`, `Bdl: ${D.bdl[0]} GHC${D.bdl[1]}`, `To: ${D.to}`, 'Name: Kwesi Owusu', `Net: ${D.net}`, 'Fee: GHC 0'],
     () => `${D.bdl[0]} broadband bundle activated on ${D.to}. ${money(D.bdl[1])} debited from ${CARD}. Ref: ${ref()}`),
 
-  /* ---- GCB Pay (Bills, QR) ---- */
-  pb: () => ({ text: `Bill Payment\n${list(BILLERS, b => b.n)}\n0. Back`,
+  /* ---- Bill & Payments ---- */
+  bp: () => ({ text: 'Bills & Payments\n1. Bill Payment\n2. QR Payment\n0. Back', choices: { '1':'pb', '2':'qr_id', '0':'BACK' } }),
+  pb: () => ({ text: `${list(BILLERS, b => b.n)}\n0. Back`,
     choices: { ...pick(BILLERS, x => D.biller = x, 'pb_ref'), '0':'BACK' } }),
   pb_ref: () => ({ text: `Enter ${D.biller.ref}:`,
     input: v => /^\d{6,16}$/.test(v) ? (D.ref = v, D.bname = D.biller.n === 'ECG' ? (v[0] === '2' ? 'ECG Postpaid' : 'ECG Prepaid') : D.biller.n, 'pb_name') : { err: `Enter a valid ${D.biller.ref.toLowerCase()} (6 to 16 digits).` } }),
@@ -684,7 +743,7 @@ const SC = {
       ? `ECG Prepaid payment of ${money(D.amt)} for meter ${D.ref} successful. Token: 4821-0937-5562-1180-7734. Ref: ${ref()}`
       : `${D.bname} payment of ${money(D.amt)} for ${D.ref} successful. Acct ${D.src} debited. Ref: ${ref()}`),
 
-  qr_id: () => ({ text: 'QR Payment\nEnter Terminal ID:',
+  qr_id: () => ({ text: 'Enter Terminal ID:',
     input: v => /^\d{6,16}$/.test(v) ? (D.mid = v, D.merchant = 'Melcom - Accra Mall', 'qr_name') : { err: 'Enter the terminal ID shown under the QR code (6 to 16 digits).' } }),
   qr_name: () => ({ text: `Merchant: ${D.merchant}\nTerminal ID: ${D.mid}\n\n1. Confirm\n2. Decline`, choices: { '1':'qr_amt', '2':'cancelled' } }),
   qr_amt: () => ({ text: 'Enter Amount:',
