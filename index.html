@@ -456,10 +456,7 @@ const BB = [['10GB',50],['25GB',100],['60GB',200],['120GB',350]];
 const CATS = ['Flexi','SMS','Social Media','Talk Time','Video'];
 const BILLERS = [
   {n:'ECG',ref:'Meter Number',short:'Meter',name:'Kwame Asante',extra:'Arrears: GHC0.00'},
-  {n:'Ghana Water',ref:'Account Number',short:'Acct',name:'Abena Kyei',extra:'Amount Due: GHC86.40'},
-  {n:'DStv',ref:'Smartcard Number',short:'Card',name:'Yaw Darko',extra:'Package: Compact'},
-  {n:'GOtv',ref:'IUC Number',short:'IUC',name:'Efua Mensah',extra:'Package: GOtv Max'},
-  {n:'StarTimes',ref:'Smartcard Number',short:'Card',name:'Kojo Antwi',extra:'Package: Classic'}
+  {n:'DStv / GOtv',ref:'Smartcard (IUC) Number',short:'IUC',name:'Yaw Darko',extra:'Amount Due: GHC285.00\nPackage: DStv Compact'}
 ];
 // PAPSS corridors: country, currency, sample rate per 1 GHS, sample beneficiary, banks (most-used first), cities
 const C = (c, cur, rate, ben, banks, cities) => ({ c, cur, rate, ben, banks, cities });
@@ -487,11 +484,6 @@ const PAPSS = [
 ];
 const ppFind = n => PAPSS.flatMap(r => r[1]).find(x => x.c === n);
 const PP_TOP = ['Nigeria',"Cote d'Ivoire",'Kenya','South Africa'].map(ppFind);
-const PP_SAVED = [
-  { name:'Adaeze Okafor', c:'Nigeria', bank:'Access Bank', acct:'012XXX6789', city:'Lagos' },
-  { name:'Wanjiku Mwangi', c:'Kenya', bank:'Equity Bank', acct:'014XXXXX3321', city:'Nairobi' },
-  { name:'Yao Konan', c:"Cote d'Ivoire", bank:'SGBCI', acct:'CI0XXXXXX4410', city:'Abidjan' }
-];
 const PP_MIN = 10, PP_MAX = 5000;
 const ppFee = a => Math.min(50, Math.max(5, a * 0.01));
 // Placeholder purposes (replace with the official 20), shown PP_PAGE per screen with "8. More"
@@ -615,14 +607,10 @@ const SC = {
   /* ---- Transfers ---- */
   ft: () => ({ text: 'Transfers\n1. Own GCB Accounts\n2. Other GCB Accounts\n3. Other Banks\n4. PAPSS (Africa)\n0. Back',
     choices: { '1': () => { D.ft = 'own'; return 'ft_own_ben'; }, '2': () => { D.ft = 'gcb'; return 'ft_gcb_acct'; },
-               '3': () => { D.ft = 'lb'; return 'ft_lb_range'; }, '4':'pp', '0':'BACK' } }),
+               '3': () => { D.ft = 'lb'; return 'ft_lb_range'; }, '4':'pp_country', '0':'BACK' } }),
 
   /* PAPSS: pan-African transfer */
-  pp: () => ({ text: 'PAPSS (Africa)\n1. Saved Beneficiary\n2. New Beneficiary\n0. Back',
-    choices: { '1':'pp_saved', '2': () => { D.saved = false; return 'pp_country'; }, '0':'BACK' } }),
-  pp_saved: () => ({ text: `Select Beneficiary:\n${list(PP_SAVED, r => `${r.name} - ${r.bank} (${r.c})`)}\n0. Back`,
-    choices: { ...pick(PP_SAVED, r => { D.saved = true; D.pc = ppFind(r.c); D.bank = r.bank; D.dest = r.acct; D.name = r.name; D.city = r.city; }, 'pp_amt'), '0':'BACK' } }),
-  pp_country: () => ({ text: `Select Country:\n${list(PP_TOP, c => c.c)}\n${PP_TOP.length + 1}. Other Countries\n0. Back`,
+  pp_country: () => ({ text: `PAPSS (Africa)\nSelect Beneficiary Country:\n${list(PP_TOP, c => c.c)}\n${PP_TOP.length + 1}. Other Countries\n0. Back`,
     choices: { ...pick(PP_TOP, c => D.pc = c, 'pp_bank'), [PP_TOP.length + 1]:'pp_range', '0':'BACK' } }),
   pp_range: () => ({ text: `Select Country:\n${list(PAPSS, r => r[0])}\n0. Back`,
     choices: { ...pick(PAPSS, r => D.prange = r, 'pp_other'), '0':'BACK' } }),
@@ -642,7 +630,7 @@ const SC = {
       choices: { '1': () => { D.ppg = 0; return 'pp_purp'; }, '2': () => backTo('pp_amt') } }; },
   pp_purp: () => {
     const items = PP_PURPOSES.slice(D.ppg * PP_PAGE, (D.ppg + 1) * PP_PAGE), more = (D.ppg + 1) * PP_PAGE < PP_PURPOSES.length;
-    const ch = { ...pick(items, x => D.purpose = x, () => D.saved ? 'pp_sum' : 'pp_city'), '0': () => { if (D.ppg > 0) { D.ppg--; return 'SAME'; } return 'BACK'; } };
+    const ch = { ...pick(items, x => D.purpose = x, 'pp_city'), '0': () => { if (D.ppg > 0) { D.ppg--; return 'SAME'; } return 'BACK'; } };
     if (more) ch['8'] = () => { D.ppg++; return 'SAME'; };
     return { text: `Select Purpose:\n${list(items)}${more ? '\n8. More' : ''}\n0. Back`, choices: ch };
   },
